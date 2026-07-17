@@ -10,6 +10,7 @@ import {
   buildTrainingProgress,
   parseTrainingCsv,
 } from './workout-progress';
+import { ParsedTrainingPlan, PlanDay, TrainingPlanRow, parseTrainingPlanCsv } from './training-plan';
 
 interface MetricCard {
   label: string;
@@ -31,6 +32,8 @@ interface TrendDot {
   label: string;
 }
 
+type ActiveView = 'plan' | 'progress';
+
 @Component({
   selector: 'app-root',
   imports: [CommonModule],
@@ -38,12 +41,101 @@ interface TrendDot {
   styleUrl: './app.css',
 })
 export class App implements OnInit {
+  public readonly activeView = signal<ActiveView>('plan');
   public readonly csvText = signal('');
   public readonly trainingLog = signal<ParsedTrainingLog | null>(null);
+  public readonly trainingPlan = signal<ParsedTrainingPlan | null>(null);
   public readonly selectedWorkout = signal('all');
   public readonly selectedExerciseKey = signal('');
+  public readonly selectedPlanWeek = signal(1);
+  public readonly selectedPlanDay = signal('all');
   public readonly isLoading = signal(false);
   public readonly error = signal<string | null>(null);
+  public readonly planError = signal<string | null>(null);
+
+  public readonly planWeeks = computed(() => this.trainingPlan()?.weeks ?? []);
+
+  public readonly currentPlanWeek = computed(() => {
+    const weeks = this.planWeeks();
+    return weeks.find((week) => week.week === this.selectedPlanWeek()) ?? weeks[0] ?? null;
+  });
+
+  public readonly planDayOptions = computed<PlanDay[]>(() => this.currentPlanWeek()?.days ?? []);
+
+  public readonly currentPlanWeekExerciseCount = computed(
+    () => this.currentPlanWeek()?.rows.length ?? 0,
+  );
+
+  public readonly selectedPlanRows = computed<TrainingPlanRow[]>(() => {
+    const week = this.currentPlanWeek();
+
+    if (!week) {
+      return [];
+    }
+
+    if (this.selectedPlanDay() === 'all') {
+      return week.rows;
+    }
+
+    return week.days.find((day) => day.name === this.selectedPlanDay())?.rows ?? week.rows;
+  });
+
+  public readonly selectedPlanHeading = computed(() => {
+    const week = this.currentPlanWeek();
+
+    if (!week) {
+      return null;
+    }
+
+    if (this.selectedPlanDay() === 'all') {
+      return {
+        title: `Semana ${week.week}`,
+        detail: week.phase,
+        focus: `${week.days.length} dias de trabajo`,
+      };
+    }
+
+    const day = week.days.find((option) => option.name === this.selectedPlanDay());
+
+    return {
+      title: `${day?.name ?? 'Dia'} · Semana ${week.week}`,
+      detail: day?.focus ?? week.phase,
+      focus: day?.phase ?? week.phase,
+    };
+  });
+
+  public readonly planMetricCards = computed<MetricCard[]>(() => {
+    const plan = this.trainingPlan();
+    const week = this.currentPlanWeek();
+    const rows = this.selectedPlanRows();
+
+    if (!plan || !week) {
+      return [];
+    }
+
+    return [
+      {
+        label: 'Plan',
+        value: `${plan.weeks.length} semanas`,
+        detail: `${plan.rows.length} ejercicios programados`,
+      },
+      {
+        label: 'Esta vista',
+        value: `${rows.length} ejercicios`,
+        detail: `${this.formatInteger(rows.reduce((sum, row) => sum + this.planSetCount(row.sets), 0))} series base`,
+      },
+      {
+        label: 'Tendon/prehab',
+        value: `${rows.filter((row) => this.isPlanCareBlock(row)).length} bloques`,
+        detail: 'Regla 24h incluida',
+      },
+      {
+        label: 'Semana',
+        value: `${week.days.length} dias`,
+        detail: `${this.formatInteger(week.sets)} series base`,
+      },
+    ];
+  });
 
   public readonly workoutOptions = computed(() => {
     const log = this.trainingLog();
@@ -172,7 +264,11 @@ export class App implements OnInit {
   );
 
   public async ngOnInit(): Promise<void> {
-    await this.loadSampleCsv();
+    await Promise.all([this.loadSampleCsv(), this.loadTrainingPlan()]);
+  }
+
+  public setActiveView(view: ActiveView): void {
+    this.activeView.set(view);
   }
 
   public updateCsvText(event: Event): void {
@@ -218,9 +314,44 @@ export class App implements OnInit {
     }
   }
 
+  public async loadTrainingPlan(): Promise<void> {
+    this.planError.set(null);
+
+    try {
+      const response = await fetch('training-plan-8-weeks.csv');
+
+      if (!response.ok) {
+        throw new Error(`No se pudo cargar el plan (${response.status}).`);
+      }
+
+      const text = await response.text();
+      const parsed = parseTrainingPlanCsv(text);
+
+      if (!parsed.weeks.length) {
+        throw new Error('No se encontraron semanas en el plan.');
+      }
+
+      this.trainingPlan.set(parsed);
+      this.selectedPlanWeek.set(parsed.weeks[0].week);
+      this.selectedPlanDay.set('all');
+    } catch (error) {
+      this.trainingPlan.set(null);
+      this.planError.set(this.errorMessage(error));
+    }
+  }
+
   public selectWorkout(workout: string): void {
     this.selectedWorkout.set(workout);
     this.selectedExerciseKey.set(this.selectedProgress()?.topMovements[0]?.key ?? '');
+  }
+
+  public selectPlanWeek(week: number): void {
+    this.selectedPlanWeek.set(week);
+    this.selectedPlanDay.set('all');
+  }
+
+  public selectPlanDay(day: string): void {
+    this.selectedPlanDay.set(day);
   }
 
   public selectExercise(key: string): void {
@@ -277,6 +408,38 @@ export class App implements OnInit {
     return `Entreno #${session.index}`;
   }
 
+  public planPrescription(row: TrainingPlanRow): string {
+    const parts = [`${row.sets} x ${row.repsOrTime}`];
+
+    if (row.suggestedLoad) {
+      parts.push(row.suggestedLoad);
+    }
+
+    if (row.rir) {
+      parts.push(row.rir);
+    }
+
+    return parts.join(' · ');
+  }
+
+  public planMeta(row: TrainingPlanRow): string {
+    return [row.tempo && `tempo ${row.tempo}`, row.rest && `descanso ${row.rest}`]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  public blockClass(row: TrainingPlanRow): string {
+    if (this.isPlanCareBlock(row)) {
+      return 'care';
+    }
+
+    if (row.block.toLowerCase().includes('principal')) {
+      return 'main';
+    }
+
+    return 'support';
+  }
+
   private parseText(text: string, sourceName: string): void {
     this.error.set(null);
 
@@ -306,5 +469,21 @@ export class App implements OnInit {
 
   private errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : 'No se pudo leer el CSV.';
+  }
+
+  private isPlanCareBlock(row: TrainingPlanRow): boolean {
+    const block = row.block
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    return block.includes('tendon') || block.includes('prehab') || block.includes('activacion');
+  }
+
+  private planSetCount(value: string): number {
+    const first = value
+      .split('-')
+      .map((part) => Number(part.trim()))
+      .find((part) => Number.isFinite(part));
+    return first ?? 0;
   }
 }

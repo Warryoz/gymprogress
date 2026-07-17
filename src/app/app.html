@@ -1,79 +1,42 @@
 <main class="app-shell">
-  <section class="topbar" aria-label="CSV controls">
+  <section class="hero">
     <div>
       <p class="eyebrow">Gym Progress</p>
-      <h1>CSV por entreno</h1>
+      <h1>Plan simple, progreso claro</h1>
+      <p class="hero-copy">
+        Sigue la rutina de 8 semanas y conserva el analisis del CSV que ya tenias.
+      </p>
     </div>
 
-    <div class="actions">
-      <label class="file-button">
-        <input type="file" accept=".csv,.tsv,.txt" (change)="onFileSelected($event)" />
-        <span>Subir CSV</span>
-      </label>
-      <button type="button" class="ghost-button" (click)="loadSampleCsv()" [disabled]="isLoading()">
-        Muestra
+    <nav class="view-tabs" aria-label="Vista principal">
+      <button
+        type="button"
+        [class.active]="activeView() === 'plan'"
+        (click)="setActiveView('plan')"
+      >
+        Plan 8 semanas
       </button>
-    </div>
+      <button
+        type="button"
+        [class.active]="activeView() === 'progress'"
+        (click)="setActiveView('progress')"
+      >
+        Progreso CSV
+      </button>
+    </nav>
   </section>
 
-  <section class="input-panel" aria-label="CSV input">
-    <textarea
-      [value]="csvText()"
-      (input)="updateCsvText($event)"
-      spellcheck="false"
-      aria-label="CSV"
-    ></textarea>
-    <div class="input-footer">
-      <span>{{ csvText().length.toLocaleString() }} caracteres</span>
-      <button type="button" (click)="parseCurrentText()">Analizar</button>
-    </div>
-  </section>
-
-  @if (error(); as message) {
-    <section class="notice" role="alert">
-      <strong>CSV</strong>
-      <span>{{ message }}</span>
-    </section>
-  }
-
-  @if (trainingLog(); as log) {
-    @if (selectedProgress(); as progress) {
-      <section class="summary-strip">
-        <div>
-          <span>Fuente</span>
-          <strong>{{ log.sourceName }}</strong>
-        </div>
-        <div>
-          <span>Filas</span>
-          <strong>{{ formatInteger(log.rowsSeen) }}</strong>
-        </div>
-        <div>
-          <span>Entrenos</span>
-          <strong>{{ formatInteger(log.sessions.length) }}</strong>
-        </div>
+  @if (activeView() === 'plan') {
+    @if (planError(); as message) {
+      <section class="notice" role="alert">
+        <strong>Plan</strong>
+        <span>{{ message }}</span>
       </section>
+    }
 
-      <nav class="segmented" aria-label="Entrenos">
-        <button
-          type="button"
-          [class.active]="selectedWorkout() === 'all'"
-          (click)="selectWorkout('all')"
-        >
-          Todos
-        </button>
-        @for (workout of workoutOptions(); track workout) {
-          <button
-            type="button"
-            [class.active]="selectedWorkout() === workout"
-            (click)="selectWorkout(workout)"
-          >
-            {{ workout }}
-          </button>
-        }
-      </nav>
-
-      <section class="metric-grid" aria-label="Resumen">
-        @for (metric of metricCards(); track metric.label) {
+    @if (trainingPlan(); as plan) {
+      <section class="metric-grid plan-metrics" aria-label="Resumen del plan">
+        @for (metric of planMetricCards(); track metric.label) {
           <article class="metric-card">
             <span>{{ metric.label }}</span>
             <strong>{{ metric.value }}</strong>
@@ -82,197 +45,378 @@
         }
       </section>
 
-      <section class="content-grid">
-        <article class="panel main-panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Volumen</p>
-              <h2>Por entreno</h2>
-            </div>
-            <strong>{{ formatKg(progress.stats.latestSessionVolumeKg) }}</strong>
-          </div>
-
-          <div class="bar-chart" aria-label="Volumen por entreno">
-            @for (bar of sessionBars(); track bar.label + bar.workout) {
-              <div class="bar-column">
-                <span class="bar-value">{{ formatKg(bar.value) }}</span>
-                <div class="bar-track">
-                  <span class="bar-fill" [style.height.%]="bar.height"></span>
-                </div>
-                <span class="bar-label">{{ bar.label }}</span>
-              </div>
-            }
-          </div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Split</p>
-              <h2>Carga</h2>
-            </div>
-          </div>
-
-          <div class="split-list">
-            @for (workout of progress.workoutSplit; track workout.name) {
-              <div class="split-row">
-                <div>
-                  <strong>{{ workout.name }}</strong>
-                  <span>{{ formatInteger(workout.sessions) }} entrenos</span>
-                </div>
-                <span>{{ formatKg(workout.volumeKg) }}</span>
-                <div class="share-track">
-                  <span [style.width.%]="workout.share"></span>
-                </div>
-              </div>
-            }
-          </div>
-        </article>
+      <section class="week-board" aria-label="Semanas">
+        @for (week of planWeeks(); track week.week) {
+          <button
+            type="button"
+            [class.active]="selectedPlanWeek() === week.week"
+            (click)="selectPlanWeek(week.week)"
+          >
+            <span>Semana {{ week.week }}</span>
+            <strong>{{ week.phase }}</strong>
+            <small>{{ week.rows.length }} ejercicios · {{ week.sets }} series</small>
+          </button>
+        }
       </section>
 
-      <section class="content-grid">
-        <article class="panel main-panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Movimiento</p>
-              <h2>Progreso</h2>
-            </div>
+      <section class="planner-layout">
+        <aside class="day-rail" aria-label="Dias de la semana seleccionada">
+          <button
+            type="button"
+            [class.active]="selectedPlanDay() === 'all'"
+            (click)="selectPlanDay('all')"
+          >
+            <strong>Toda la semana</strong>
+            <span>{{ currentPlanWeekExerciseCount() }} ejercicios</span>
+          </button>
 
-            <select
-              class="exercise-select"
-              [value]="selectedExercise()?.key ?? ''"
-              (change)="selectExercise($any($event.target).value)"
-              aria-label="Ejercicio"
+          @for (day of planDayOptions(); track day.key) {
+            <button
+              type="button"
+              [class.active]="selectedPlanDay() === day.name"
+              (click)="selectPlanDay(day.name)"
             >
-              @for (movement of progress.topMovements; track movement.key) {
-                <option [value]="movement.key">{{ movement.name }}</option>
-              }
-            </select>
-          </div>
+              <strong>{{ day.name }}</strong>
+              <span>{{ day.focus }}</span>
+            </button>
+          }
+        </aside>
 
-          @if (selectedExercise(); as movement) {
-            <div class="movement-stats">
+        <section class="plan-panel">
+          @if (selectedPlanHeading(); as heading) {
+            <div class="plan-heading">
               <div>
-                <span>Actual</span>
-                <strong>{{ formatKg(movement.latestWeightKg) }}</strong>
+                <p class="eyebrow">Rutina</p>
+                <h2>{{ heading.title }}</h2>
+                <p>{{ heading.detail }}</p>
               </div>
-              <div>
-                <span>Cambio</span>
-                <strong [class.positive]="(movement.weightDeltaKg ?? 0) > 0">
-                  {{ formatSignedKg(movement.weightDeltaKg) }}
-                </strong>
-              </div>
-              <div>
-                <span>Mejor</span>
-                <strong>{{ formatKg(movement.bestWeightKg) }}</strong>
-              </div>
-              <div>
-                <span>1RM</span>
-                <strong>{{ formatKg(movement.bestOneRepMaxKg) }}</strong>
-              </div>
-            </div>
-
-            <div class="line-chart">
-              @if (exerciseTrendDots().length) {
-                <svg viewBox="0 0 560 180" role="img" aria-label="Progreso del ejercicio">
-                  @if (exerciseTrendDots().length > 1) {
-                    <polyline [attr.points]="exerciseTrendLine()" />
-                  }
-                  @for (dot of exerciseTrendDots(); track dot.label + dot.x) {
-                    <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="5" />
-                  }
-                </svg>
-              } @else {
-                <div class="empty-chart">Sin datos</div>
-              }
-            </div>
-
-            <div class="table movement-table">
-              <div class="table-row header">
-                <span>Entreno</span>
-                <span>Ejercicio</span>
-                <span>Series</span>
-                <span>Volumen</span>
-              </div>
-              @for (entry of movement.entries.slice(-8); track entry.sourceRow) {
-                <div class="table-row">
-                  <span>#{{ entry.sessionIndex }}</span>
-                  <strong>{{ entry.exercise }}</strong>
-                  <span>{{ setSummary(entry) }}</span>
-                  <span>{{ formatKg(entry.volumeKg) }}</span>
-                </div>
-              }
+              <span>{{ heading.focus }}</span>
             </div>
           }
-        </article>
 
-        <article class="panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Top</p>
-              <h2>Mejoras</h2>
-            </div>
+          <div class="rule-card">
+            <strong>Regla 24h</strong>
+            <span>
+              Dolor 0-3/10 durante el entreno y al dia siguiente igual o mejor. Si empeora,
+              baja 10-20% carga/volumen y acorta rango.
+            </span>
           </div>
 
-          <div class="leader-list">
-            @for (movement of progress.topMovements.slice(0, 8); track movement.key) {
-              <button type="button" (click)="selectExercise(movement.key)">
-                <span>
-                  <strong>{{ movement.name }}</strong>
-                  <small>{{ movement.workout }}</small>
-                </span>
-                <em [class.positive]="(movement.weightDeltaKg ?? 0) > 0">
-                  {{ formatSignedKg(movement.weightDeltaKg) }}
-                </em>
-              </button>
+          <div class="exercise-plan-list">
+            @for (row of selectedPlanRows(); track row.sourceRow) {
+              <article class="exercise-plan-card" [class]="blockClass(row)">
+                <div class="exercise-plan-top">
+                  <span>{{ row.block }}</span>
+                  <strong>{{ row.exercise }}</strong>
+                </div>
+                <p>{{ planPrescription(row) }}</p>
+                <small>{{ planMeta(row) }}</small>
+                <div class="exercise-detail-grid">
+                  <div>
+                    <span>Objetivo</span>
+                    <p>{{ row.objective }}</p>
+                  </div>
+                  <div>
+                    <span>Nota</span>
+                    <p>{{ row.notes || row.progression }}</p>
+                  </div>
+                </div>
+              </article>
             }
           </div>
-        </article>
-      </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <p class="eyebrow">Log</p>
-            <h2>Ultimos entrenos</h2>
-          </div>
-        </div>
-
-        <div class="table session-table">
-          <div class="table-row header">
-            <span>Entreno</span>
-            <span>Tipo</span>
-            <span>Ejercicios</span>
-            <span>Series</span>
-            <span>Volumen</span>
-          </div>
-          @for (session of progress.sessionSummaries.slice(-10).reverse(); track session.key) {
-            <div class="table-row">
-              <strong>{{ sessionTitle(session) }}</strong>
-              <span>{{ session.workout }}</span>
-              <span>{{ formatInteger(session.entries) }}</span>
-              <span>{{ formatInteger(session.sets) }}</span>
-              <span>{{ formatKg(session.volumeKg) }}</span>
-            </div>
-          }
-        </div>
-      </section>
-
-      @if (log.warnings.length) {
-        <section class="warning-list" aria-label="Avisos">
-          @for (warning of log.warnings.slice(0, 8); track warning) {
-            <span>{{ warning }}</span>
+          @if (plan.warnings.length) {
+            <section class="warning-list" aria-label="Avisos del plan">
+              @for (warning of plan.warnings.slice(0, 6); track warning) {
+                <span>{{ warning }}</span>
+              }
+            </section>
           }
         </section>
-      }
-    }
-  } @else {
-    <section class="empty-state">
-      @if (isLoading()) {
+      </section>
+    } @else {
+      <section class="empty-state">
         <span class="loader"></span>
-      } @else {
-        <span>Sin CSV</span>
-      }
+      </section>
+    }
+  }
+
+  @if (activeView() === 'progress') {
+    <section class="topbar" aria-label="CSV controls">
+      <div>
+        <p class="eyebrow">Progreso</p>
+        <h2>CSV por entreno</h2>
+      </div>
+
+      <div class="actions">
+        <label class="file-button">
+          <input type="file" accept=".csv,.tsv,.txt" (change)="onFileSelected($event)" />
+          <span>Subir CSV</span>
+        </label>
+        <button type="button" class="ghost-button" (click)="loadSampleCsv()" [disabled]="isLoading()">
+          Muestra
+        </button>
+      </div>
     </section>
+
+    <section class="input-panel" aria-label="CSV input">
+      <textarea
+        [value]="csvText()"
+        (input)="updateCsvText($event)"
+        spellcheck="false"
+        aria-label="CSV"
+      ></textarea>
+      <div class="input-footer">
+        <span>{{ csvText().length.toLocaleString() }} caracteres</span>
+        <button type="button" (click)="parseCurrentText()">Analizar</button>
+      </div>
+    </section>
+
+    @if (error(); as message) {
+      <section class="notice" role="alert">
+        <strong>CSV</strong>
+        <span>{{ message }}</span>
+      </section>
+    }
+
+    @if (trainingLog(); as log) {
+      @if (selectedProgress(); as progress) {
+        <section class="summary-strip">
+          <div>
+            <span>Fuente</span>
+            <strong>{{ log.sourceName }}</strong>
+          </div>
+          <div>
+            <span>Filas</span>
+            <strong>{{ formatInteger(log.rowsSeen) }}</strong>
+          </div>
+          <div>
+            <span>Entrenos</span>
+            <strong>{{ formatInteger(log.sessions.length) }}</strong>
+          </div>
+        </section>
+
+        <nav class="segmented" aria-label="Entrenos">
+          <button
+            type="button"
+            [class.active]="selectedWorkout() === 'all'"
+            (click)="selectWorkout('all')"
+          >
+            Todos
+          </button>
+          @for (workout of workoutOptions(); track workout) {
+            <button
+              type="button"
+              [class.active]="selectedWorkout() === workout"
+              (click)="selectWorkout(workout)"
+            >
+              {{ workout }}
+            </button>
+          }
+        </nav>
+
+        <section class="metric-grid" aria-label="Resumen">
+          @for (metric of metricCards(); track metric.label) {
+            <article class="metric-card">
+              <span>{{ metric.label }}</span>
+              <strong>{{ metric.value }}</strong>
+              <small>{{ metric.detail }}</small>
+            </article>
+          }
+        </section>
+
+        <section class="content-grid">
+          <article class="panel main-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Volumen</p>
+                <h2>Por entreno</h2>
+              </div>
+              <strong>{{ formatKg(progress.stats.latestSessionVolumeKg) }}</strong>
+            </div>
+
+            <div class="bar-chart" aria-label="Volumen por entreno">
+              @for (bar of sessionBars(); track bar.label + bar.workout) {
+                <div class="bar-column">
+                  <span class="bar-value">{{ formatKg(bar.value) }}</span>
+                  <div class="bar-track">
+                    <span class="bar-fill" [style.height.%]="bar.height"></span>
+                  </div>
+                  <span class="bar-label">{{ bar.label }}</span>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Split</p>
+                <h2>Carga</h2>
+              </div>
+            </div>
+
+            <div class="split-list">
+              @for (workout of progress.workoutSplit; track workout.name) {
+                <div class="split-row">
+                  <div>
+                    <strong>{{ workout.name }}</strong>
+                    <span>{{ formatInteger(workout.sessions) }} entrenos</span>
+                  </div>
+                  <span>{{ formatKg(workout.volumeKg) }}</span>
+                  <div class="share-track">
+                    <span [style.width.%]="workout.share"></span>
+                  </div>
+                </div>
+              }
+            </div>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <article class="panel main-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Movimiento</p>
+                <h2>Progreso</h2>
+              </div>
+
+              <select
+                class="exercise-select"
+                [value]="selectedExercise()?.key ?? ''"
+                (change)="selectExercise($any($event.target).value)"
+                aria-label="Ejercicio"
+              >
+                @for (movement of progress.topMovements; track movement.key) {
+                  <option [value]="movement.key">{{ movement.name }}</option>
+                }
+              </select>
+            </div>
+
+            @if (selectedExercise(); as movement) {
+              <div class="movement-stats">
+                <div>
+                  <span>Actual</span>
+                  <strong>{{ formatKg(movement.latestWeightKg) }}</strong>
+                </div>
+                <div>
+                  <span>Cambio</span>
+                  <strong [class.positive]="(movement.weightDeltaKg ?? 0) > 0">
+                    {{ formatSignedKg(movement.weightDeltaKg) }}
+                  </strong>
+                </div>
+                <div>
+                  <span>Mejor</span>
+                  <strong>{{ formatKg(movement.bestWeightKg) }}</strong>
+                </div>
+                <div>
+                  <span>1RM</span>
+                  <strong>{{ formatKg(movement.bestOneRepMaxKg) }}</strong>
+                </div>
+              </div>
+
+              <div class="line-chart">
+                @if (exerciseTrendDots().length) {
+                  <svg viewBox="0 0 560 180" role="img" aria-label="Progreso del ejercicio">
+                    @if (exerciseTrendDots().length > 1) {
+                      <polyline [attr.points]="exerciseTrendLine()" />
+                    }
+                    @for (dot of exerciseTrendDots(); track dot.label + dot.x) {
+                      <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="5" />
+                    }
+                  </svg>
+                } @else {
+                  <div class="empty-chart">Sin datos</div>
+                }
+              </div>
+
+              <div class="table movement-table">
+                <div class="table-row header">
+                  <span>Entreno</span>
+                  <span>Ejercicio</span>
+                  <span>Series</span>
+                  <span>Volumen</span>
+                </div>
+                @for (entry of movement.entries.slice(-8); track entry.sourceRow) {
+                  <div class="table-row">
+                    <span>#{{ entry.sessionIndex }}</span>
+                    <strong>{{ entry.exercise }}</strong>
+                    <span>{{ setSummary(entry) }}</span>
+                    <span>{{ formatKg(entry.volumeKg) }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Top</p>
+                <h2>Mejoras</h2>
+              </div>
+            </div>
+
+            <div class="leader-list">
+              @for (movement of progress.topMovements.slice(0, 8); track movement.key) {
+                <button type="button" (click)="selectExercise(movement.key)">
+                  <span>
+                    <strong>{{ movement.name }}</strong>
+                    <small>{{ movement.workout }}</small>
+                  </span>
+                  <em [class.positive]="(movement.weightDeltaKg ?? 0) > 0">
+                    {{ formatSignedKg(movement.weightDeltaKg) }}
+                  </em>
+                </button>
+              }
+            </div>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Log</p>
+              <h2>Ultimos entrenos</h2>
+            </div>
+          </div>
+
+          <div class="table session-table">
+            <div class="table-row header">
+              <span>Entreno</span>
+              <span>Tipo</span>
+              <span>Ejercicios</span>
+              <span>Series</span>
+              <span>Volumen</span>
+            </div>
+            @for (session of progress.sessionSummaries.slice(-10).reverse(); track session.key) {
+              <div class="table-row">
+                <strong>{{ sessionTitle(session) }}</strong>
+                <span>{{ session.workout }}</span>
+                <span>{{ formatInteger(session.entries) }}</span>
+                <span>{{ formatInteger(session.sets) }}</span>
+                <span>{{ formatKg(session.volumeKg) }}</span>
+              </div>
+            }
+          </div>
+        </section>
+
+        @if (log.warnings.length) {
+          <section class="warning-list" aria-label="Avisos">
+            @for (warning of log.warnings.slice(0, 8); track warning) {
+              <span>{{ warning }}</span>
+            }
+          </section>
+        }
+      }
+    } @else {
+      <section class="empty-state">
+        @if (isLoading()) {
+          <span class="loader"></span>
+        } @else {
+          <span>Sin CSV</span>
+        }
+      </section>
+    }
   }
 </main>
