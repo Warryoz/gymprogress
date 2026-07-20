@@ -32,7 +32,38 @@ interface TrendDot {
   label: string;
 }
 
-type ActiveView = 'plan' | 'progress';
+interface PlanSummaryRow {
+  row: TrainingPlanRow;
+  sets: number;
+  loadLabel: string;
+  phaseShort: string;
+}
+
+interface PlanWeekBar {
+  label: string;
+  phase: string;
+  sets: number;
+  exercises: number;
+  height: number;
+}
+
+interface PlanBlockShare {
+  label: string;
+  sets: number;
+  rows: number;
+  share: number;
+  className: string;
+}
+
+interface PlanDaySummary {
+  label: string;
+  focus: string;
+  sets: number;
+  exercises: number;
+  careRows: number;
+}
+
+type ActiveView = 'plan' | 'routineSummary' | 'progress';
 
 @Component({
   selector: 'app-root',
@@ -48,6 +79,8 @@ export class App implements OnInit {
   public readonly selectedWorkout = signal('all');
   public readonly selectedExerciseKey = signal('');
   public readonly selectedPlanWeek = signal(1);
+  public readonly selectedSummaryWeek = signal<number | 'all'>('all');
+  public readonly selectedSummaryRoutine = signal('all');
   public readonly selectedPlanDay = signal('all');
   public readonly isLoading = signal(false);
   public readonly error = signal<string | null>(null);
@@ -65,6 +98,142 @@ export class App implements OnInit {
   public readonly currentPlanWeekExerciseCount = computed(
     () => this.currentPlanWeek()?.rows.length ?? 0,
   );
+
+  public readonly summaryRoutineOptions = computed(() => {
+    const plan = this.trainingPlan();
+
+    if (!plan) {
+      return [];
+    }
+
+    return [...new Set(plan.rows.map((row) => row.day))].filter(Boolean);
+  });
+
+  public readonly summaryPlanRows = computed<PlanSummaryRow[]>(() => {
+    const plan = this.trainingPlan();
+    const selectedWeek = this.selectedSummaryWeek();
+    const selectedRoutine = this.selectedSummaryRoutine();
+
+    if (!plan) {
+      return [];
+    }
+
+    return plan.rows
+      .filter(
+        (row) =>
+          (selectedWeek === 'all' || row.week === selectedWeek) &&
+          (selectedRoutine === 'all' || row.day === selectedRoutine),
+      )
+      .map((row) => ({
+        row,
+        sets: this.planSetCount(row.sets),
+        loadLabel: row.suggestedLoad || '-',
+        phaseShort: this.shortPhase(row.phase),
+      }));
+  });
+
+  public readonly summaryMetricCards = computed<MetricCard[]>(() => {
+    const plan = this.trainingPlan();
+    const rows = this.summaryPlanRows();
+
+    if (!plan) {
+      return [];
+    }
+
+    const sets = rows.reduce((sum, item) => sum + item.sets, 0);
+    const careRows = rows.filter((item) => this.isPlanCareBlock(item.row)).length;
+    const weightedRows = rows.filter((item) => this.hasWeightedLoad(item.row.suggestedLoad)).length;
+
+    return [
+      {
+        label: 'Vista',
+        value: this.selectedSummaryWeek() === 'all' ? '8 semanas' : `Semana ${this.selectedSummaryWeek()}`,
+        detail: `${this.formatInteger(rows.length)} filas de rutina`,
+      },
+      {
+        label: 'Series',
+        value: this.formatInteger(sets),
+        detail: `${this.formatInteger(Math.round(sets / Math.max(rows.length, 1)))} por ejercicio`,
+      },
+      {
+        label: 'Con peso',
+        value: this.formatInteger(weightedRows),
+        detail: 'carga sugerida numerica',
+      },
+      {
+        label: 'Cuidado',
+        value: this.formatInteger(careRows),
+        detail: 'tendon, activacion o prehab',
+      },
+    ];
+  });
+
+  public readonly planWeekBars = computed<PlanWeekBar[]>(() => {
+    const weeks = this.planWeeks();
+    const maxSets = Math.max(...weeks.map((week) => week.sets), 1);
+
+    return weeks.map((week) => ({
+      label: `S${week.week}`,
+      phase: week.phase,
+      sets: week.sets,
+      exercises: week.rows.length,
+      height: Math.max((week.sets / maxSets) * 100, 8),
+    }));
+  });
+
+  public readonly planBlockShares = computed<PlanBlockShare[]>(() => {
+    const rows = this.summaryPlanRows();
+    const totalSets = rows.reduce((sum, item) => sum + item.sets, 0);
+    const blocks = new Map<string, PlanBlockShare>();
+
+    rows.forEach(({ row, sets }) => {
+      const label = this.blockBucket(row);
+      const current =
+        blocks.get(label) ??
+        ({
+          label,
+          sets: 0,
+          rows: 0,
+          share: 0,
+          className: this.blockBucketClass(label),
+        } satisfies PlanBlockShare);
+
+      current.sets += sets;
+      current.rows += 1;
+      blocks.set(label, current);
+    });
+
+    return [...blocks.values()]
+      .map((block) => ({
+        ...block,
+        share: totalSets > 0 ? (block.sets / totalSets) * 100 : 0,
+      }))
+      .sort((a, b) => b.sets - a.sets || a.label.localeCompare(b.label));
+  });
+
+  public readonly planDaySummaries = computed<PlanDaySummary[]>(() => {
+    const rows = this.summaryPlanRows();
+    const days = new Map<string, PlanDaySummary>();
+
+    rows.forEach(({ row, sets }) => {
+      const current =
+        days.get(row.day) ??
+        ({
+          label: row.day,
+          focus: row.focus,
+          sets: 0,
+          exercises: 0,
+          careRows: 0,
+        } satisfies PlanDaySummary);
+
+      current.sets += sets;
+      current.exercises += 1;
+      current.careRows += this.isPlanCareBlock(row) ? 1 : 0;
+      days.set(row.day, current);
+    });
+
+    return [...days.values()].sort((a, b) => a.label.localeCompare(b.label));
+  });
 
   public readonly selectedPlanRows = computed<TrainingPlanRow[]>(() => {
     const week = this.currentPlanWeek();
@@ -333,6 +502,8 @@ export class App implements OnInit {
 
       this.trainingPlan.set(parsed);
       this.selectedPlanWeek.set(parsed.weeks[0].week);
+      this.selectedSummaryWeek.set('all');
+      this.selectedSummaryRoutine.set('all');
       this.selectedPlanDay.set('all');
     } catch (error) {
       this.trainingPlan.set(null);
@@ -348,6 +519,14 @@ export class App implements OnInit {
   public selectPlanWeek(week: number): void {
     this.selectedPlanWeek.set(week);
     this.selectedPlanDay.set('all');
+  }
+
+  public selectSummaryWeek(value: string): void {
+    this.selectedSummaryWeek.set(value === 'all' ? 'all' : Number(value));
+  }
+
+  public selectSummaryRoutine(value: string): void {
+    this.selectedSummaryRoutine.set(value);
   }
 
   public selectPlanDay(day: string): void {
@@ -485,5 +664,42 @@ export class App implements OnInit {
       .map((part) => Number(part.trim()))
       .find((part) => Number.isFinite(part));
     return first ?? 0;
+  }
+
+  private shortPhase(value: string): string {
+    return value.split(':')[0]?.trim() || value;
+  }
+
+  private hasWeightedLoad(value: string): boolean {
+    return /\d/.test(value) && !value.toLowerCase().includes('bw');
+  }
+
+  private blockBucket(row: TrainingPlanRow): string {
+    const block = row.block
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    if (this.isPlanCareBlock(row)) {
+      return 'Prehab/tendon';
+    }
+
+    if (block.includes('principal')) {
+      return 'Principal';
+    }
+
+    if (block.includes('core')) {
+      return 'Core';
+    }
+
+    return 'Accesorio';
+  }
+
+  private blockBucketClass(label: string): string {
+    return label
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-');
   }
 }

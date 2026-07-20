@@ -18,6 +18,13 @@
       </button>
       <button
         type="button"
+        [class.active]="activeView() === 'routineSummary'"
+        (click)="setActiveView('routineSummary')"
+      >
+        Resumen
+      </button>
+      <button
+        type="button"
         [class.active]="activeView() === 'progress'"
         (click)="setActiveView('progress')"
       >
@@ -133,6 +140,228 @@
             </section>
           }
         </section>
+      </section>
+    } @else {
+      <section class="empty-state">
+        <span class="loader"></span>
+      </section>
+    }
+  }
+
+  @if (activeView() === 'routineSummary') {
+    @if (planError(); as message) {
+      <section class="notice" role="alert">
+        <strong>Plan</strong>
+        <span>{{ message }}</span>
+      </section>
+    }
+
+    @if (trainingPlan(); as plan) {
+      <section class="topbar" aria-label="Controles de resumen">
+        <div>
+          <p class="eyebrow">Dashboard</p>
+          <h2>Resumen tipo Excel</h2>
+        </div>
+
+        <div class="summary-filters">
+          <select
+            class="exercise-select"
+            [value]="selectedSummaryWeek()"
+            (change)="selectSummaryWeek($any($event.target).value)"
+            aria-label="Semana para resumir"
+          >
+            <option value="all">Todas las semanas</option>
+            @for (week of planWeeks(); track week.week) {
+              <option [value]="week.week">Semana {{ week.week }}</option>
+            }
+          </select>
+
+          <select
+            class="exercise-select"
+            [value]="selectedSummaryRoutine()"
+            (change)="selectSummaryRoutine($any($event.target).value)"
+            aria-label="Rutina para resumir"
+          >
+            <option value="all">Todas las rutinas</option>
+            @for (routine of summaryRoutineOptions(); track routine) {
+              <option [value]="routine">{{ routine }}</option>
+            }
+          </select>
+        </div>
+      </section>
+
+      <section class="metric-grid plan-metrics" aria-label="Metricas del resumen">
+        @for (metric of summaryMetricCards(); track metric.label) {
+          <article class="metric-card">
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+            <small>{{ metric.detail }}</small>
+          </article>
+        }
+      </section>
+
+      <section class="content-grid dashboard-grid">
+        <article class="panel main-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Series</p>
+              <h2>Volumen semanal</h2>
+            </div>
+            <strong>{{ formatInteger(plan.rows.length) }} ejercicios</strong>
+          </div>
+
+          <div class="plan-bar-chart" aria-label="Series por semana">
+            @for (bar of planWeekBars(); track bar.label) {
+              <button
+                type="button"
+                class="plan-bar-column"
+                [class.active]="selectedSummaryWeek() === +bar.label.slice(1)"
+                (click)="selectSummaryWeek(bar.label.slice(1))"
+              >
+                <span class="bar-value">{{ formatInteger(bar.sets) }}</span>
+                <div class="bar-track">
+                  <span class="bar-fill" [style.height.%]="bar.height"></span>
+                </div>
+                <span class="bar-label">{{ bar.label }}</span>
+              </button>
+            }
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Bloques</p>
+              <h2>Distribucion</h2>
+            </div>
+          </div>
+
+          <div class="block-share-list">
+            @for (block of planBlockShares(); track block.label) {
+              <div class="block-share-row" [class]="block.className">
+                <div>
+                  <strong>{{ block.label }}</strong>
+                  <span>{{ formatInteger(block.rows) }} filas</span>
+                </div>
+                <span>{{ formatInteger(block.sets) }} series</span>
+                <div class="share-track">
+                  <span [style.width.%]="block.share"></span>
+                </div>
+              </div>
+            }
+          </div>
+        </article>
+      </section>
+
+      <section class="panel dashboard-days">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Dias</p>
+            <h2>Carga por dia</h2>
+          </div>
+        </div>
+
+        <div class="day-summary-grid">
+          @for (day of planDaySummaries(); track day.label) {
+            <article class="day-summary-card">
+              <div class="day-summary-main">
+                <strong>{{ day.label }}</strong>
+                <span>{{ day.focus }}</span>
+              </div>
+              <div class="day-summary-stat">
+                <span>Series</span>
+                <strong>{{ formatInteger(day.sets) }}</strong>
+              </div>
+              <div class="day-summary-stat">
+                <span>Ejercicios</span>
+                <strong>{{ formatInteger(day.exercises) }}</strong>
+              </div>
+              <div class="day-summary-stat">
+                <span>Cuidado</span>
+                <strong>{{ formatInteger(day.careRows) }}</strong>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="panel sheet-panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Tabla</p>
+            <h2>Rutina resumida</h2>
+          </div>
+          <strong>{{ formatInteger(summaryPlanRows().length) }} filas</strong>
+        </div>
+
+        <nav class="sheet-nav" aria-label="Navegacion de semanas en la tabla">
+          <button
+            type="button"
+            [class.active]="selectedSummaryWeek() === 'all'"
+            (click)="selectSummaryWeek('all')"
+          >
+            Todas
+          </button>
+          @for (week of planWeeks(); track week.week) {
+            <button
+              type="button"
+              [class.active]="selectedSummaryWeek() === week.week"
+              (click)="selectSummaryWeek('' + week.week)"
+            >
+              S{{ week.week }}
+            </button>
+          }
+        </nav>
+
+        <nav class="sheet-nav routine-nav" aria-label="Navegacion de rutinas en la tabla">
+          <button
+            type="button"
+            [class.active]="selectedSummaryRoutine() === 'all'"
+            (click)="selectSummaryRoutine('all')"
+          >
+            Todas las rutinas
+          </button>
+          @for (routine of summaryRoutineOptions(); track routine) {
+            <button
+              type="button"
+              [class.active]="selectedSummaryRoutine() === routine"
+              (click)="selectSummaryRoutine(routine)"
+            >
+              {{ routine }}
+            </button>
+          }
+        </nav>
+
+        <div class="sheet-wrap">
+          <div class="table sheet-table">
+            <div class="table-row header">
+              <span>Sem</span>
+              <span>Dia</span>
+              <span>Bloque</span>
+              <span>Ejercicio</span>
+              <span>Series</span>
+              <span>Reps/tiempo</span>
+              <span>Peso</span>
+              <span>RIR</span>
+              <span>Descanso</span>
+              <span>Fase</span>
+            </div>
+            @for (item of summaryPlanRows(); track item.row.sourceRow) {
+              <div class="table-row" [class]="blockClass(item.row)">
+                <span data-label="Sem">{{ item.row.week }}</span>
+                <span data-label="Dia">{{ item.row.day }}</span>
+                <span data-label="Bloque">{{ item.row.block }}</span>
+                <strong data-label="Ejercicio">{{ item.row.exercise }}</strong>
+                <span data-label="Series">{{ item.row.sets }}</span>
+                <span data-label="Reps/tiempo">{{ item.row.repsOrTime }}</span>
+                <span data-label="Peso">{{ item.loadLabel }}</span>
+                <span data-label="RIR">{{ item.row.rir }}</span>
+                <span data-label="Descanso">{{ item.row.rest }}</span>
+                <span data-label="Fase">{{ item.phaseShort }}</span>
+              </div>
+            }
+          </div>
+        </div>
       </section>
     } @else {
       <section class="empty-state">

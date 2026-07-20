@@ -377,6 +377,13 @@ textarea:focus,
   padding: 18px;
 }
 
+.summary-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 8px;
+}
+
 .file-button input {
   position: absolute;
   inline-size: 1px;
@@ -490,12 +497,25 @@ textarea {
   min-height: 260px;
 }
 
-.bar-column {
+.bar-column,
+.plan-bar-column {
   display: grid;
   min-width: 0;
   grid-template-rows: 34px 180px 24px;
   gap: 8px;
   text-align: center;
+}
+
+.plan-bar-column {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+}
+
+.plan-bar-column.active .bar-track {
+  box-shadow: inset 0 0 0 2px #172026;
 }
 
 .bar-value,
@@ -521,6 +541,18 @@ textarea {
   background: #5d46b1;
 }
 
+.plan-bar-chart {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(48px, 1fr));
+  align-items: end;
+  gap: 10px;
+  min-height: 260px;
+}
+
+.plan-bar-chart .bar-fill {
+  background: #0f8a64;
+}
+
 .split-list,
 .leader-list,
 .table {
@@ -535,7 +567,8 @@ textarea {
   align-items: center;
 }
 
-.split-row > div {
+.split-row > div,
+.block-share-row > div {
   display: grid;
   gap: 2px;
   min-width: 0;
@@ -554,6 +587,44 @@ textarea {
   height: 100%;
   border-radius: inherit;
   background: #0f8a64;
+}
+
+.block-share-list {
+  display: grid;
+  gap: 10px;
+}
+
+.block-share-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  border: 1px solid #e3e9e6;
+  border-radius: 8px;
+  padding: 11px;
+  background: #fbfcfc;
+}
+
+.block-share-row > span,
+.block-share-row div span {
+  color: #657077;
+  font-size: 0.78rem;
+}
+
+.block-share-row.principal .share-track span {
+  background: #5d46b1;
+}
+
+.block-share-row.accesorio .share-track span {
+  background: #c47a20;
+}
+
+.block-share-row.prehab-tendon .share-track span {
+  background: #0f8a64;
+}
+
+.block-share-row.core .share-track span {
+  background: #172026;
 }
 
 .exercise-select {
@@ -659,6 +730,148 @@ textarea {
   white-space: nowrap;
 }
 
+.dashboard-days {
+  margin-top: 14px;
+}
+
+.day-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.day-summary-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 12px;
+  border: 1px solid #e3e9e6;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfc;
+}
+
+.day-summary-card div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.day-summary-main {
+  grid-column: 1 / -1;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e6ece9;
+}
+
+.day-summary-card span {
+  color: #657077;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.day-summary-main span {
+  font-size: 0.86rem;
+}
+
+.day-summary-stat {
+  min-height: 54px;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+}
+
+.sheet-panel .panel-header {
+  margin-bottom: 10px;
+}
+
+.sheet-nav {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 0 -4px 10px;
+  padding: 0 4px 6px;
+  background: #fff;
+}
+
+.routine-nav {
+  top: 40px;
+}
+
+.sheet-nav button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  border: 1px solid #cfd8d4;
+  border-radius: 8px;
+  padding: 0 11px;
+  cursor: pointer;
+  color: #172026;
+  background: #fff;
+  font-weight: 850;
+}
+
+.sheet-nav button.active {
+  border-color: #172026;
+  color: #fff;
+  background: #172026;
+}
+
+.sheet-wrap {
+  overflow: auto;
+  max-height: min(70vh, 680px);
+  border: 1px solid #dfe5e2;
+  border-radius: 8px;
+  background: #fff;
+  scrollbar-gutter: stable;
+}
+
+.sheet-table {
+  min-width: 1060px;
+  gap: 0;
+  margin-top: 0;
+}
+
+.sheet-table .table-row {
+  grid-template-columns: 48px 92px 150px minmax(190px, 1.4fr) 72px 110px 120px 90px 104px minmax(170px, 1fr);
+  min-height: 40px;
+  border-bottom: 1px solid #e6ece9;
+  border-radius: 0;
+  background: #fff;
+}
+
+.sheet-table .table-row:nth-child(even):not(.header) {
+  background: #fbfcfc;
+}
+
+.sheet-table .table-row.header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: #edf1ef;
+}
+
+.sheet-table .table-row > :nth-child(1),
+.sheet-table .table-row > :nth-child(2) {
+  position: sticky;
+  z-index: 2;
+  background: inherit;
+}
+
+.sheet-table .table-row > :nth-child(1) {
+  left: 0;
+}
+
+.sheet-table .table-row > :nth-child(2) {
+  left: 48px;
+  box-shadow: 8px 0 12px rgba(23, 32, 38, 0.08);
+}
+
+.sheet-table .table-row.header > :nth-child(1),
+.sheet-table .table-row.header > :nth-child(2) {
+  z-index: 5;
+}
+
 .leader-list button {
   display: flex;
   width: 100%;
@@ -762,6 +975,11 @@ textarea {
     flex: 1 1 0;
   }
 
+  .summary-filters,
+  .summary-filters .exercise-select {
+    width: 100%;
+  }
+
   .summary-strip,
   .metric-grid,
   .plan-metrics,
@@ -782,13 +1000,67 @@ textarea {
     grid-template-columns: repeat(16, 52px);
   }
 
+  .plan-bar-chart {
+    overflow-x: auto;
+    grid-template-columns: repeat(8, 54px);
+  }
+
+  .day-summary-card {
+    grid-template-columns: 1fr;
+  }
+
   .table-row,
   .session-table .table-row {
     grid-template-columns: 1fr;
     align-items: start;
   }
 
-  .table-row.header {
+  .sheet-wrap {
+    max-height: none;
+    border: 0;
+    background: transparent;
+  }
+
+  .sheet-table {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .sheet-table .table-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid #e3e9e6;
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .table-row.header,
+  .sheet-table .table-row.header {
     display: none;
+  }
+
+  .sheet-table .table-row > * {
+    display: grid;
+    gap: 3px;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .sheet-table .table-row > *::before {
+    content: attr(data-label);
+    color: #657077;
+    font-size: 0.7rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .sheet-table .table-row > :nth-child(1),
+  .sheet-table .table-row > :nth-child(2) {
+    position: static;
+    box-shadow: none;
+  }
+
+  .sheet-table .table-row > :nth-child(4),
+  .sheet-table .table-row > :nth-child(10) {
+    grid-column: 1 / -1;
   }
 }
