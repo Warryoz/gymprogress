@@ -546,8 +546,16 @@ function compareEntries(a: WorkoutEntry, b: WorkoutEntry): number {
   return a.sessionIndex - b.sessionIndex || a.sourceRow - b.sourceRow;
 }
 
-function estimateOneRepMax(weightKg: number, reps: number): number {
-  return round(weightKg * (1 + reps / 30), 1);
+export function estimateOneRepMax(weightKg: number, reps: number): number {
+  if (!Number.isFinite(weightKg) || !Number.isFinite(reps) || weightKg <= 0 || reps <= 0) {
+    return 0;
+  }
+
+  if (reps === 1) {
+    return round(weightKg, 1);
+  }
+
+  return round(weightKg * (1 + Math.min(reps, 30) / 30), 1);
 }
 
 function convertToKg(weight: number, unit: WeightUnit): number {

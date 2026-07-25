@@ -1,0 +1,225 @@
+<article class="calculator-shell">
+  <app-calculator-header
+    category="Esfuerzo · Cálculo manual"
+    title="RIR y RPE"
+    description="Interpreta qué tan cerca estuviste del fallo o estima una carga desde un máximo."
+    technicalTerm="RIR y RPE"
+    technicalDescription="RIR son las repeticiones que quedaban en reserva. RPE expresa el esfuerzo en una escala de 1 a 10."
+    [status]="attempted() && validation() ? 'Revisar datos' : calculated() ? 'Resultado listo' : 'Sin calcular'"
+    [statusTone]="attempted() && validation() ? 'error' : calculated() ? 'success' : 'neutral'"
+  />
+
+  <app-calculator-instructions>
+    <ol>
+      <li>Elige si quieres interpretar una serie o calcular una carga.</li>
+      <li>Introduce tus propios datos y registra el esfuerzo percibido.</li>
+      <li>Usa el historial únicamente si quieres autocompletar el formulario.</li>
+    </ol>
+    <p><strong>Ejemplo:</strong> RIR 2 significa que todavía podrías realizar unas dos repeticiones.</p>
+  </app-calculator-instructions>
+
+  <div class="mode-switch" aria-label="Modo de cálculo">
+    <button type="button" [class.active]="mode() === 'interpret'" [attr.aria-pressed]="mode() === 'interpret'" (click)="setMode('interpret')">
+      Interpretar una serie
+    </button>
+    <button type="button" [class.active]="mode() === 'load'" [attr.aria-pressed]="mode() === 'load'" (click)="setMode('load')">
+      Calcular carga desde 1RM
+    </button>
+  </div>
+
+  <div class="source-actions">
+    @if (mode() === 'interpret') {
+      <button type="button" [disabled]="!historySet()" (click)="useHistorySeries()">
+        Usar una serie de mi historial
+      </button>
+    } @else {
+      <button type="button" [disabled]="!storedOneRepMax()" (click)="useStoredMaximum()">
+        Usar mi mejor 1RM guardado
+      </button>
+    }
+    @if (dataSource() === 'history') {
+      <button type="button" class="text-action" (click)="returnToManual()">Volver a entrada manual</button>
+    }
+  </div>
+
+  @if (dataSource() === 'history') {
+    <p class="history-note">
+      @if (mode() === 'interpret' && historySet(); as set) {
+        Usando datos de {{ set.exercise }} · Entrenamiento #{{ set.sessionIndex }}
+      } @else if (storedOneRepMax(); as maximum) {
+        Usando el mejor 1RM de {{ maximum.exercise }} · Entrenamiento #{{ maximum.sessionIndex }}
+      }
+    </p>
+  } @else if (
+    (mode() === 'interpret' && !historySet()) || (mode() === 'load' && !storedOneRepMax())
+  ) {
+    <p class="no-history">No hay datos guardados. Puedes usar la calculadora manualmente.</p>
+  }
+
+  <div class="step-heading"><span>Paso 1</span><strong>Introduce tus datos</strong></div>
+
+  @if (mode() === 'interpret') {
+    <div class="field-grid">
+      <label>
+        <span>Peso utilizado</span>
+        <div class="input-unit">
+          <input type="number" min="0" inputmode="decimal" placeholder="Ej. 80" [value]="weight() ?? ''" (input)="inputNumber(weight, $event)" />
+          <strong>{{ unit() }}</strong>
+        </div>
+      </label>
+      <label>
+        <span>Repeticiones realizadas</span>
+        <div class="input-unit">
+          <input type="number" min="1" max="20" inputmode="numeric" placeholder="Ej. 8" [value]="reps() ?? ''" (input)="inputNumber(reps, $event)" />
+          <strong>reps</strong>
+        </div>
+      </label>
+    </div>
+  } @else {
+    <div class="field-grid">
+      <label>
+        <span>1RM conocido o estimado</span>
+        <div class="input-unit">
+          <input type="number" min="0" inputmode="decimal" placeholder="Ej. 120" [value]="oneRepMax() ?? ''" (input)="inputNumber(oneRepMax, $event)" />
+          <strong>{{ unit() }}</strong>
+        </div>
+      </label>
+      <label>
+        <span>Repeticiones objetivo</span>
+        <div class="input-unit">
+          <input type="number" min="1" max="20" inputmode="numeric" placeholder="Ej. 5" [value]="reps() ?? ''" (input)="inputNumber(reps, $event)" />
+          <strong>reps</strong>
+        </div>
+      </label>
+    </div>
+  }
+
+  <div class="field-grid effort-fields">
+    <label>
+      <span>Escala de esfuerzo</span>
+      <select [value]="effortScale()" (change)="setScale($any($event.target).value)">
+        <option value="rir">RIR</option>
+        <option value="rpe">RPE</option>
+      </select>
+    </label>
+    <label>
+      <span class="label-with-help">
+        {{ mode() === 'interpret' ? 'Esfuerzo registrado' : 'Esfuerzo objetivo' }}
+        <app-technical-tooltip
+          [term]="effortScale().toUpperCase()"
+          [description]="effortScale() === 'rir' ? 'Repeticiones que crees que todavía podías realizar.' : 'Esfuerzo percibido: RPE 10 equivale a no poder realizar más repeticiones.'"
+          [iconOnly]="true"
+        />
+      </span>
+      <input
+        type="number"
+        inputmode="decimal"
+        step="0.5"
+        [min]="effortScale() === 'rir' ? 0 : 5"
+        [max]="effortScale() === 'rir' ? 5 : 10"
+        [placeholder]="effortScale() === 'rir' ? '0–5' : '5–10'"
+        [attr.aria-label]="(mode() === 'interpret' ? 'Esfuerzo registrado en ' : 'Esfuerzo objetivo en ') + effortScale().toUpperCase()"
+        [value]="effort() ?? ''"
+        (input)="inputNumber(effort, $event)"
+      />
+    </label>
+    @if (mode() === 'interpret') {
+      <label>
+        <span>Esfuerzo objetivo <small>Opcional</small></span>
+        <input
+          type="number"
+          inputmode="decimal"
+          step="0.5"
+          [min]="effortScale() === 'rir' ? 0 : 5"
+          [max]="effortScale() === 'rir' ? 5 : 10"
+          [placeholder]="effortScale() === 'rir' ? '0–5' : '5–10'"
+          [value]="targetEffort() ?? ''"
+          (input)="inputNumber(targetEffort, $event)"
+        />
+      </label>
+    } @else {
+      <label>
+        <span class="label-with-help">
+          Incremento disponible
+          <app-technical-tooltip
+            term="Incremento"
+            description="El salto mínimo de peso que puedes montar con tus discos."
+            [iconOnly]="true"
+          />
+        </span>
+        <div class="input-unit">
+          <input type="number" min="0.1" step="0.5" inputmode="decimal" aria-label="Incremento disponible" [value]="increment()" (input)="inputIncrement($event)" />
+          <strong>{{ unit() }}</strong>
+        </div>
+      </label>
+    }
+    <label>
+      <span>Unidad</span>
+      <select [value]="unit()" (change)="setUnit($any($event.target).value)">
+        <option value="kg">kg</option>
+        <option value="lb">lb</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="calculate-row">
+    <span><small>Paso 2</small> Calcula el resultado</span>
+    <button type="button" class="primary" (click)="calculate()">
+      {{ mode() === 'interpret' ? 'Interpretar esfuerzo' : 'Calcular carga' }}
+    </button>
+  </div>
+
+  @if (attempted() && validation()) {
+    <p class="error-state" role="alert">{{ validation() }}</p>
+  } @else if (!calculated()) {
+    <div class="empty-state">
+      <strong>Aún no hay resultado</strong>
+      <span>Completa los datos y pulsa el botón de calcular.</span>
+    </div>
+  } @else if (mode() === 'interpret' && interpretation(); as result) {
+    <section class="result success" aria-live="polite">
+      <span>Esfuerzo interpretado</span>
+      <h3>{{ result.description }}</h3>
+      <div class="result-grid">
+        <div><span>Repeticiones potenciales</span><strong>{{ format(result.potentialReps) }}</strong></div>
+        <div><span>RIR aproximado</span><strong>{{ format(result.rir) }}</strong></div>
+        <div><span>RPE aproximado</span><strong>{{ format(result.rpe) }}</strong></div>
+        <div><span>Frente al objetivo</span><strong>{{ result.difference }}</strong></div>
+      </div>
+      <p>La conversión entre RIR y RPE es aproximada.</p>
+    </section>
+    <section class="next-step">
+      <div><span>Paso 3</span><strong>Siguiente paso</strong><small>Usa un 1RM para estimar la carga de otra serie.</small></div>
+      <button type="button" class="primary" (click)="setMode('load')">Calcular una carga</button>
+    </section>
+  } @else if (mode() === 'load') {
+    <section class="result approximate" aria-live="polite">
+      <span>Carga recomendada</span>
+      <h3>{{ format(loadEstimate().usable) }} {{ unit() }}</h3>
+      <div class="result-grid">
+        <div>
+          <span class="label-with-help">Peso calculado <app-technical-tooltip term="Peso calculado" description="Resultado matemático antes de ajustarlo a tus incrementos." [iconOnly]="true" /></span>
+          <strong>{{ format(loadEstimate().calculated) }} {{ unit() }}</strong>
+        </div>
+        <div>
+          <span class="label-with-help">Peso utilizable <app-technical-tooltip term="Peso utilizable" description="Carga redondeada a un peso que realmente puedes montar." [iconOnly]="true" /></span>
+          <strong>{{ format(loadEstimate().usable) }} {{ unit() }}</strong>
+        </div>
+        <div>
+          <span class="label-with-help">Porcentaje del 1RM <app-technical-tooltip term="Porcentaje del 1RM" description="Proporción aproximada que representa esta carga respecto a tu máximo." [iconOnly]="true" /></span>
+          <strong>{{ format(loadEstimate().percentage) }} %</strong>
+        </div>
+        <div><span>Rango recomendado</span><strong>{{ format(loadEstimate().lower) }}–{{ format(loadEstimate().upper) }} {{ unit() }}</strong></div>
+      </div>
+      <p>Este peso fue redondeado al incremento disponible.</p>
+    </section>
+    <section class="next-step">
+      <div><span>Paso 3</span><strong>Siguiente paso</strong><small>Prepara la carga recomendada en la barra.</small></div>
+      <button type="button" class="primary" (click)="applyToPlates()">Enviar a discos</button>
+    </section>
+  }
+
+  <p class="estimation-note">
+    Este cálculo es una estimación y puede variar según el ejercicio y la experiencia del usuario.
+  </p>
+</article>

@@ -1,37 +1,14 @@
-<main class="app-shell">
-  <section class="hero">
-    <div>
-      <p class="eyebrow">Gym Progress</p>
-      <h1>Plan simple, progreso claro</h1>
-      <p class="hero-copy">
-        Sigue la rutina de 8 semanas y conserva el analisis del CSV que ya tenias.
-      </p>
-    </div>
+<app-header
+  [activeView]="activeView()"
+  [themePreference]="themePreference()"
+  [trainingMode]="planMode() === 'workout'"
+  [trainLabel]="mobileTrainLabel()"
+  (viewChange)="setActiveView($event)"
+  (themeChange)="setThemePreference($event)"
+  (train)="startTraining()"
+/>
 
-    <nav class="view-tabs" aria-label="Vista principal">
-      <button
-        type="button"
-        [class.active]="activeView() === 'plan'"
-        (click)="setActiveView('plan')"
-      >
-        Plan 8 semanas
-      </button>
-      <button
-        type="button"
-        [class.active]="activeView() === 'routineSummary'"
-        (click)="setActiveView('routineSummary')"
-      >
-        Resumen
-      </button>
-      <button
-        type="button"
-        [class.active]="activeView() === 'progress'"
-        (click)="setActiveView('progress')"
-      >
-        Progreso CSV
-      </button>
-    </nav>
-  </section>
+<main id="main-content" class="app-shell" tabindex="-1">
 
   @if (activeView() === 'plan') {
     @if (planError(); as message) {
@@ -42,50 +19,149 @@
     }
 
     @if (trainingPlan(); as plan) {
-      <section class="metric-grid plan-metrics" aria-label="Resumen del plan">
-        @for (metric of planMetricCards(); track metric.label) {
-          <article class="metric-card">
-            <span>{{ metric.label }}</span>
-            <strong>{{ metric.value }}</strong>
-            <small>{{ metric.detail }}</small>
-          </article>
-        }
-      </section>
+      @if (currentWorkoutDay(); as workout) {
+        <section id="current-workout" class="current-workout-card">
+          <div>
+            <p class="eyebrow">Semana {{ selectedPlanWeek() }} · Hoy</p>
+            <h1>{{ workout.name }}</h1>
+            <div class="workout-context">
+              <span>Enfoque del día</span>
+              <app-technical-tooltip
+                term="Enfoque del día"
+                [description]="workout.focus"
+                [iconOnly]="true"
+              />
+            </div>
+            <p class="workout-summary">
+              {{ workout.rows.length }} ejercicios · {{ workout.sets }} series ·
+              {{ estimatedWorkoutDuration(workout) }}
+            </p>
+            @if (trainingInProgress()) {
+              <div class="workout-progress" aria-live="polite">
+                <div>
+                  <span>
+                    {{ currentWorkoutProgress().completed }} de
+                    {{ currentWorkoutProgress().total }} ejercicios
+                  </span>
+                  <strong>{{ currentWorkoutProgress().percentage }}%</strong>
+                </div>
+                <div class="workout-progress-track">
+                  <span [style.width.%]="currentWorkoutProgress().percentage"></span>
+                </div>
+              </div>
+            } @else if (trainingCompleted()) {
+              <p class="workout-complete-message">✓ Entrenamiento completado</p>
+            }
+          </div>
+          <button type="button" class="primary-action" (click)="startTraining()">
+            {{ workoutActionLabel() }}
+          </button>
+        </section>
+      }
 
-      <section class="week-board" aria-label="Semanas">
-        @for (week of planWeeks(); track week.week) {
+      @if (currentPlanWeek(); as week) {
+        <section class="compact-week-selector" aria-label="Semana del plan">
           <button
             type="button"
-            [class.active]="selectedPlanWeek() === week.week"
-            (click)="selectPlanWeek(week.week)"
+            aria-label="Semana anterior"
+            [disabled]="currentPlanWeekIndex() <= 0"
+            (click)="selectAdjacentWeek(-1)"
           >
-            <span>Semana {{ week.week }}</span>
-            <strong>{{ week.phase }}</strong>
-            <small>{{ week.rows.length }} ejercicios · {{ week.sets }} series</small>
+            ‹
           </button>
-        }
-      </section>
+          <div>
+            <span>Semana {{ week.week }} de {{ planWeeks().length }}</span>
+            <div class="week-phase">
+              <strong>{{ shortPhase(week.phase) }}</strong>
+              <app-technical-tooltip
+                term="Fase de la semana"
+                [description]="week.phase"
+                [iconOnly]="true"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Semana siguiente"
+            [disabled]="currentPlanWeekIndex() >= planWeeks().length - 1"
+            (click)="selectAdjacentWeek(1)"
+          >
+            ›
+          </button>
+          <button type="button" class="all-weeks-button" (click)="toggleWeekOverview()">
+            Ver todas las semanas
+          </button>
+        </section>
+      }
+
+      @if (weekOverviewOpen()) {
+        <div class="drawer-backdrop" (click)="toggleWeekOverview()"></div>
+        <section
+          class="week-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="week-drawer-title"
+        >
+          <div class="drawer-header">
+            <div>
+              <p class="eyebrow">Plan completo</p>
+              <h2 id="week-drawer-title">Seleccionar semana</h2>
+            </div>
+            <button type="button" aria-label="Cerrar selector" (click)="toggleWeekOverview()">×</button>
+          </div>
+          <div class="week-drawer-list">
+            @for (week of planWeeks(); track week.week) {
+              <div
+                class="week-drawer-item"
+                [class.active]="selectedPlanWeek() === week.week"
+                [attr.aria-current]="selectedPlanWeek() === week.week ? 'step' : null"
+              >
+                <button
+                  type="button"
+                  class="week-select"
+                  (click)="selectPlanWeek(week.week)"
+                >
+                  <span>
+                    Semana {{ week.week }}
+                    @if (selectedPlanWeek() === week.week) {
+                      <em>Actual</em>
+                    }
+                  </span>
+                  <strong>{{ shortPhase(week.phase) }}</strong>
+                  <small>{{ week.sets }} series · {{ week.days.length }} días</small>
+                </button>
+                <app-technical-tooltip
+                  term="Descripción de la semana"
+                  [description]="week.phase"
+                  [iconOnly]="true"
+                />
+              </div>
+            }
+          </div>
+        </section>
+      }
 
       <section class="planner-layout">
         <aside class="day-rail" aria-label="Dias de la semana seleccionada">
-          <button
-            type="button"
-            [class.active]="selectedPlanDay() === 'all'"
-            (click)="selectPlanDay('all')"
-          >
-            <strong>Toda la semana</strong>
-            <span>{{ currentPlanWeekExerciseCount() }} ejercicios</span>
-          </button>
-
           @for (day of planDayOptions(); track day.key) {
-            <button
-              type="button"
-              [class.active]="selectedPlanDay() === day.name"
-              (click)="selectPlanDay(day.name)"
-            >
-              <strong>{{ day.name }}</strong>
-              <span>{{ day.focus }}</span>
-            </button>
+            <div class="day-option" [class.active]="selectedPlanDay() === day.name">
+              <button
+                type="button"
+                class="day-select"
+                [attr.aria-current]="selectedPlanDay() === day.name ? 'step' : null"
+                (click)="selectPlanDay(day.name)"
+              >
+                <span class="day-state" [class.current]="selectedPlanDay() === day.name">
+                  {{ selectedPlanDay() === day.name ? '●' : '○' }} {{ dayStatus(day) }}
+                </span>
+                <strong>{{ day.name }}</strong>
+              </button>
+              <app-technical-tooltip
+                term="Enfoque del día"
+                [description]="day.focus"
+                [iconOnly]="true"
+              />
+            </div>
           }
         </aside>
 
@@ -95,40 +171,37 @@
               <div>
                 <p class="eyebrow">Rutina</p>
                 <h2>{{ heading.title }}</h2>
-                <p>{{ heading.detail }}</p>
+                <div class="plan-context">
+                  <app-technical-tooltip
+                    term="Enfoque"
+                    [description]="heading.detail"
+                  />
+                  <app-technical-tooltip
+                    term="Fase"
+                    [description]="heading.focus"
+                  />
+                </div>
               </div>
-              <span>{{ heading.focus }}</span>
             </div>
           }
 
           <div class="rule-card">
-            <strong>Regla 24h</strong>
-            <span>
-              Dolor 0-3/10 durante el entreno y al dia siguiente igual o mejor. Si empeora,
-              baja 10-20% carga/volumen y acorta rango.
-            </span>
+            <app-technical-tooltip
+              term="Regla 24 h"
+              description="Durante el entrenamiento y al día siguiente debe sentirse igual o mejor. Si empeora, baja 10–20% la carga o el volumen."
+              variant="subtle"
+            />
           </div>
 
           <div class="exercise-plan-list">
             @for (row of selectedPlanRows(); track row.sourceRow) {
-              <article class="exercise-plan-card" [class]="blockClass(row)">
-                <div class="exercise-plan-top">
-                  <span>{{ row.block }}</span>
-                  <strong>{{ row.exercise }}</strong>
-                </div>
-                <p>{{ planPrescription(row) }}</p>
-                <small>{{ planMeta(row) }}</small>
-                <div class="exercise-detail-grid">
-                  <div>
-                    <span>Objetivo</span>
-                    <p>{{ row.objective }}</p>
-                  </div>
-                  <div>
-                    <span>Nota</span>
-                    <p>{{ row.notes || row.progression }}</p>
-                  </div>
-                </div>
-              </article>
+              <app-exercise-card
+                [row]="row"
+                [tone]="blockClass(row)"
+                [trainingMode]="trainingInProgress()"
+                [completed]="completedExerciseRows().has(row.sourceRow)"
+                (completedChange)="setExerciseCompleted(row.sourceRow, $event)"
+              />
             }
           </div>
 
@@ -142,8 +215,10 @@
         </section>
       </section>
     } @else {
-      <section class="empty-state">
-        <span class="loader"></span>
+      <section class="loading-skeleton" aria-label="Cargando plan" aria-busy="true">
+        <span></span>
+        <span></span>
+        <span></span>
       </section>
     }
   }
@@ -160,7 +235,7 @@
       <section class="topbar" aria-label="Controles de resumen">
         <div>
           <p class="eyebrow">Dashboard</p>
-          <h2>Resumen tipo Excel</h2>
+          <h1>Tu plan en números</h1>
         </div>
 
         <div class="summary-filters">
@@ -191,7 +266,10 @@
       </section>
 
       <section class="metric-grid plan-metrics" aria-label="Metricas del resumen">
-        @for (metric of summaryMetricCards(); track metric.label) {
+        @for (
+          metric of summaryMetricCards().slice(0, showMoreStats() ? summaryMetricCards().length : 3);
+          track metric.label
+        ) {
           <article class="metric-card">
             <span>{{ metric.label }}</span>
             <strong>{{ metric.value }}</strong>
@@ -199,15 +277,23 @@
           </article>
         }
       </section>
+      <button
+        type="button"
+        class="text-action stats-toggle"
+        [attr.aria-expanded]="showMoreStats()"
+        (click)="showMoreStats.set(!showMoreStats())"
+      >
+        {{ showMoreStats() ? 'Ver menos estadísticas' : 'Ver más estadísticas' }}
+      </button>
 
       <section class="content-grid dashboard-grid">
         <article class="panel main-panel">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Series</p>
-              <h2>Volumen semanal</h2>
+              <h2>Series por semana</h2>
             </div>
-            <strong>{{ formatInteger(plan.rows.length) }} ejercicios</strong>
+            <strong>{{ formatInteger(plan.rows.length) }} apariciones</strong>
           </div>
 
           <div class="plan-bar-chart" aria-label="Series por semana">
@@ -241,7 +327,7 @@
               <div class="block-share-row" [class]="block.className">
                 <div>
                   <strong>{{ block.label }}</strong>
-                  <span>{{ formatInteger(block.rows) }} filas</span>
+                  <span>{{ formatInteger(block.rows) }} ejercicios</span>
                 </div>
                 <span>{{ formatInteger(block.sets) }} series</span>
                 <div class="share-track">
@@ -288,52 +374,35 @@
       <section class="panel sheet-panel">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">Tabla</p>
-            <h2>Rutina resumida</h2>
+            <p class="eyebrow">Vista avanzada</p>
+            <h2>Detalle completo del plan</h2>
           </div>
-          <strong>{{ formatInteger(summaryPlanRows().length) }} filas</strong>
+          <button
+            type="button"
+            class="text-action"
+            [attr.aria-expanded]="advancedTableOpen()"
+            aria-controls="advanced-plan-table"
+            (click)="advancedTableOpen.set(!advancedTableOpen())"
+          >
+            {{ advancedTableOpen() ? 'Ocultar tabla' : 'Abrir tabla' }}
+          </button>
         </div>
 
-        <nav class="sheet-nav" aria-label="Navegacion de semanas en la tabla">
-          <button
-            type="button"
-            [class.active]="selectedSummaryWeek() === 'all'"
-            (click)="selectSummaryWeek('all')"
-          >
-            Todas
-          </button>
-          @for (week of planWeeks(); track week.week) {
-            <button
-              type="button"
-              [class.active]="selectedSummaryWeek() === week.week"
-              (click)="selectSummaryWeek('' + week.week)"
-            >
-              S{{ week.week }}
-            </button>
-          }
-        </nav>
+        @if (advancedTableOpen()) {
+          <div id="advanced-plan-table">
+            <label class="search-field">
+              <span>Buscar ejercicio</span>
+              <input
+                type="search"
+                placeholder="Ej. press, sentadilla…"
+                [value]="exerciseSearch()"
+                (input)="updateExerciseSearch($event)"
+              />
+            </label>
 
-        <nav class="sheet-nav routine-nav" aria-label="Navegacion de rutinas en la tabla">
-          <button
-            type="button"
-            [class.active]="selectedSummaryRoutine() === 'all'"
-            (click)="selectSummaryRoutine('all')"
-          >
-            Todas las rutinas
-          </button>
-          @for (routine of summaryRoutineOptions(); track routine) {
-            <button
-              type="button"
-              [class.active]="selectedSummaryRoutine() === routine"
-              (click)="selectSummaryRoutine(routine)"
-            >
-              {{ routine }}
-            </button>
-          }
-        </nav>
-
-        <div class="sheet-wrap">
-          <div class="table sheet-table">
+            @if (summaryPlanRows().length) {
+              <div class="sheet-wrap">
+                <div class="table sheet-table">
             <div class="table-row header">
               <span>Sem</span>
               <span>Dia</span>
@@ -360,46 +429,953 @@
                 <span data-label="Fase">{{ item.phaseShort }}</span>
               </div>
             }
+                </div>
+              </div>
+            } @else {
+              <section class="empty-state compact">
+                <strong>Sin resultados</strong>
+                <span>Prueba otro ejercicio o cambia los filtros.</span>
+              </section>
+            }
+          </div>
+        }
+      </section>
+    } @else {
+      <section class="loading-skeleton" aria-label="Cargando resumen" aria-busy="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </section>
+    }
+  }
+
+  @if (activeView() === 'calculator') {
+    <section class="calculator-heading">
+      <div>
+        <p class="eyebrow">Fuerza</p>
+        <h2>Herramientas de fuerza</h2>
+        <p>Calcula con tus propios datos y conecta tu historial solo cuando lo necesites.</p>
+      </div>
+
+      @if (strengthTab() === 'calculate' && strengthCalculatorPage() !== 'home') {
+        <div class="unit-toggle" aria-label="Unidad de peso">
+        <button
+          type="button"
+          [class.active]="calculatorUnit() === 'kg'"
+          [attr.aria-pressed]="calculatorUnit() === 'kg'"
+          (click)="updateCalculatorUnit('kg')"
+        >
+          kg
+        </button>
+        <button
+          type="button"
+          [class.active]="calculatorUnit() === 'lb'"
+          [attr.aria-pressed]="calculatorUnit() === 'lb'"
+          (click)="updateCalculatorUnit('lb')"
+        >
+          lb
+        </button>
+        </div>
+      }
+    </section>
+
+    <nav class="strength-tabs" role="tablist" aria-label="Herramientas de fuerza">
+      <button
+        type="button"
+        role="tab"
+        [class.active]="strengthTab() === 'calculate'"
+        [attr.aria-selected]="strengthTab() === 'calculate'"
+        (click)="setStrengthTab('calculate')"
+      >
+        Calculadoras
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [class.active]="strengthTab() === 'compare'"
+        [attr.aria-selected]="strengthTab() === 'compare'"
+        (click)="setStrengthTab('compare')"
+      >
+        Comparar
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [class.active]="strengthTab() === 'records'"
+        [attr.aria-selected]="strengthTab() === 'records'"
+        (click)="setStrengthTab('records')"
+      >
+        Récords
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [class.active]="strengthTab() === 'history'"
+        [attr.aria-selected]="strengthTab() === 'history'"
+        (click)="setStrengthTab('history')"
+      >
+        Historial
+      </button>
+    </nav>
+
+    @if (strengthTab() === 'calculate') {
+      @if (strengthCalculatorPage() === 'home') {
+        <app-strength-tools-home (openTool)="openStrengthCalculator($event)" />
+      }
+
+      @if (strengthCalculatorPage() === 'oneRm') {
+      <div class="tool-page-nav">
+        <button type="button" (click)="openStrengthCalculator('home')">
+          <span aria-hidden="true">←</span> Todas las calculadoras
+        </button>
+      </div>
+      <section class="calculator-grid single-tool">
+        <article class="panel rm-card">
+          <app-calculator-header
+            category="Fuerza · Cálculo manual"
+            title="Calculadora de 1RM"
+            description="Introduce una serie exigente para estimar el peso máximo que podrías levantar una vez."
+            technicalTerm="1RM"
+            technicalDescription="Peso máximo estimado que podrías levantar una vez con buena técnica."
+            [status]="calculatorAttempted() && calculatorValidation() ? 'Revisar datos' : oneRmCalculated() ? 'Resultado listo' : 'Sin calcular'"
+            [statusTone]="calculatorAttempted() && calculatorValidation() ? 'error' : oneRmCalculated() ? 'success' : 'neutral'"
+          />
+
+          <app-calculator-instructions>
+            <ol>
+              <li>Introduce el peso de una serie exigente.</li>
+              <li>Indica las repeticiones realizadas.</li>
+              <li>Evita usar más de 12 repeticiones para una estimación más estable.</li>
+            </ol>
+            <p><strong>Ejemplo:</strong> 80 kg × 5 estima aproximadamente 93 kg.</p>
+          </app-calculator-instructions>
+
+          <div class="data-source-switch" aria-label="Fuente de datos">
+            <button
+              type="button"
+              [class.active]="calculatorDataSource() === 'manual'"
+              [attr.aria-pressed]="calculatorDataSource() === 'manual'"
+              (click)="returnToManualOneRm()"
+            >
+              Introducir manualmente
+            </button>
+            <button
+              type="button"
+              [disabled]="!quickLastSet()"
+              [class.active]="calculatorDataSource() === 'history'"
+              [attr.aria-pressed]="calculatorDataSource() === 'history'"
+              (click)="useLatestHistorySet()"
+            >
+              Usar última serie guardada
+            </button>
+          </div>
+
+          @if (calculatorDataSource() === 'history') {
+            <div class="history-source-note">
+              <span>
+                Usando datos de {{ selectedStrengthExerciseName() || 'tu historial' }}
+                @if (rirHistorySet(); as historySet) {
+                  · Entrenamiento #{{ historySet.sessionIndex }}
+                }
+              </span>
+              <button type="button" (click)="returnToManualOneRm()">Volver a entrada manual</button>
+            </div>
+          } @else if (!quickLastSet()) {
+            <p class="optional-history-note">
+              No hay datos guardados. Puedes usar la calculadora manualmente.
+            </p>
+          }
+
+          <div class="form-section-label"><span>Paso 1</span><strong>Datos de la serie</strong></div>
+          <div class="calculator-fields">
+            <label>
+              <span>Peso levantado</span>
+              <div class="number-field">
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="0.5"
+                  placeholder="Ej. 80"
+                  [value]="rmWeight() || ''"
+                  (input)="updateRmWeight($event)"
+                />
+                <strong>{{ calculatorUnit() }}</strong>
+              </div>
+            </label>
+            <label>
+              <span>Repeticiones</span>
+              <div class="number-field">
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  max="20"
+                  step="1"
+                  placeholder="Ej. 5"
+                  [value]="rmReps() || ''"
+                  (input)="updateRmReps($event)"
+                />
+                <strong>reps</strong>
+              </div>
+            </label>
+          </div>
+
+          <button
+            type="button"
+            class="inline-disclosure"
+            [attr.aria-expanded]="calculatorOptionsOpen()"
+            aria-controls="calculator-options"
+            (click)="calculatorOptionsOpen.set(!calculatorOptionsOpen())"
+          >
+            Más opciones
+            <span aria-hidden="true">{{ calculatorOptionsOpen() ? '−' : '+' }}</span>
+          </button>
+
+          @if (calculatorOptionsOpen()) {
+            <div id="calculator-options" class="strength-options">
+              <label>
+                <span class="label-with-tooltip">
+                  Fórmula
+                  <app-technical-tooltip
+                    term="Fórmula"
+                    description="Método matemático usado para estimar el máximo desde peso y repeticiones."
+                    [iconOnly]="true"
+                  />
+                </span>
+                <select [value]="rmFormula()" (change)="updateRmFormula($event)">
+                  <option value="epley">Epley (predeterminada)</option>
+                  <option value="brzycki">Brzycki</option>
+                  <option value="lombardi">Lombardi</option>
+                  <option value="average">Promedio de fórmulas</option>
+                </select>
+              </label>
+              <label>
+                <span>Escala de esfuerzo</span>
+                <select [value]="effortScale()" (change)="updateEffortScale($event)">
+                  <option value="rir">RIR</option>
+                  <option value="rpe">RPE</option>
+                </select>
+              </label>
+              <label>
+                <span>{{ effortScale() === 'rir' ? 'RIR opcional' : 'RPE opcional' }}</span>
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  step="0.5"
+                  [min]="effortScale() === 'rir' ? 0 : 5"
+                  [max]="effortScale() === 'rir' ? 5 : 10"
+                  [value]="effortValue() ?? ''"
+                  (input)="updateEffortValue($event)"
+                />
+              </label>
+              <label>
+                <span class="label-with-tooltip">
+                  Incremento utilizable
+                  <app-technical-tooltip
+                    term="Incremento"
+                    description="El salto mínimo de peso que puedes montar con tus discos."
+                    [iconOnly]="true"
+                  />
+                </span>
+                <select [value]="roundingIncrement()" (change)="updateRoundingIncrement($event)">
+                  <option [value]="0.5">0.5 {{ calculatorUnit() }}</option>
+                  <option [value]="1">1 {{ calculatorUnit() }}</option>
+                  <option [value]="1.25">1.25 {{ calculatorUnit() }}</option>
+                  <option [value]="2.5">2.5 {{ calculatorUnit() }}</option>
+                  @if (calculatorUnit() === 'lb') {
+                    <option [value]="5">5 lb</option>
+                  }
+                </select>
+              </label>
+              <p class="option-help">
+                RIR 0 equivale aproximadamente a RPE 10; RIR 2, a RPE 8.
+              </p>
+            </div>
+          }
+
+          <div class="calculation-action">
+            <span><small>Paso 2</small> Calcula el resultado</span>
+            <button type="button" class="primary-action" (click)="calculateOneRm()">
+              Calcular 1RM
+            </button>
+          </div>
+
+          @if (calculatorAttempted() && calculatorValidation()) {
+            <p class="validation-message" role="alert">{{ calculatorValidation() }}</p>
+          } @else if (oneRmCalculated()) {
+            @if (rmReps() > 12) {
+              <p class="validation-message warning">
+                Con más de 12 repeticiones la estimación suele ser menos precisa.
+              </p>
+            }
+            <div class="rm-result" aria-live="polite">
+              <span>1RM estimado</span>
+              <strong>{{ formatCalculatorWeight(oneRepMaxResult().direct) }}</strong>
+              <small>
+                Basado en {{ formatCalculatorWeight(rmWeight()) }} × {{ rmReps() }} · Fórmula:
+                {{ formulaLabel(rmFormula()) }}
+              </small>
+              @if (oneRepMaxResult().adjusted !== null) {
+                <div class="adjusted-result">
+                  <span>Ajustada por {{ effortScale().toUpperCase() }} {{ effortValue() }}</span>
+                  <strong>{{ formatCalculatorWeight(oneRepMaxResult().adjusted!) }}</strong>
+                  <small>Supone que las repeticiones en reserva se evaluaron correctamente.</small>
+                </div>
+              }
+            </div>
+            <div class="calculator-next-step">
+              <div>
+                <span>Paso 3</span>
+                <strong>Siguiente paso</strong>
+                <small>Prepara esta carga o relaciónala opcionalmente con tus marcas.</small>
+              </div>
+              <div>
+                <button type="button" class="primary-action" (click)="sendOneRmToPlates()">
+                  Preparar una barra
+                </button>
+                @if (calculatorHistoryContext()) {
+                  <button
+                    type="button"
+                    class="secondary-action"
+                    (click)="compareCalculatorHistory.set(!compareCalculatorHistory())"
+                  >
+                    {{ compareCalculatorHistory() ? 'Ocultar comparación' : 'Comparar con mi historial' }}
+                  </button>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="empty-calculation-state">
+              <strong>Aún no hay resultado</strong>
+              <span>Introduce el peso y las repeticiones y pulsa “Calcular 1RM”.</span>
+            </div>
+          }
+
+          @if (oneRmCalculated() && compareCalculatorHistory() && calculatorHistoryContext(); as context) {
+            <aside class="context-card">
+              <span>Comparación con tu historial</span>
+              <strong>{{ context.exercise }}</strong>
+              <div class="context-comparison">
+                <p><span>Mejor 1RM estimado</span><strong>{{ formatKg(context.best) }}</strong><small>Entrenamiento #{{ context.bestSession }}</small></p>
+                <p><span>Estimación actual</span><strong>{{ formatKg(context.current) }}</strong></p>
+                <p><span>Diferencia</span><strong>{{ formatSignedKg(context.difference) }}</strong></p>
+              </div>
+              <small>Una estimación inferior en una serie submáxima no significa necesariamente que hayas perdido fuerza.</small>
+            </aside>
+          }
+        </article>
+
+      </section>
+      }
+
+      @if (strengthCalculatorPage() === 'rirRpe') {
+        <div class="tool-page-nav">
+          <button type="button" (click)="openStrengthCalculator('home')">
+            <span aria-hidden="true">←</span> Todas las calculadoras
+          </button>
+        </div>
+        <app-rir-rpe-calculator
+          [historySet]="rirHistorySet()"
+          [storedOneRepMax]="storedOneRepMax()"
+          [initialUnit]="calculatorUnit()"
+          (sendToPlates)="sendRirLoadToPlates($event)"
+        />
+      }
+
+      @if (strengthCalculatorPage() === 'plates') {
+      <div class="tool-page-nav">
+        <button type="button" (click)="openStrengthCalculator('home')">
+          <span aria-hidden="true">←</span> Todas las calculadoras
+        </button>
+      </div>
+      <section id="plate-calculator" class="panel plate-panel">
+        <app-calculator-header
+          category="Preparación · Cálculo manual"
+          title="Calculadora de discos"
+          description="Indica el peso total que quieres cargar y los discos que tienes disponibles."
+          technicalTerm="Discos por lado"
+          technicalDescription="Las cantidades corresponden a cada lado de la barra; el total incluye ambos lados."
+          [status]="platesAttempted() && plateValidation() ? 'Revisar datos' : platesCalculated() ? 'Configuración lista' : 'Sin calcular'"
+          [statusTone]="platesAttempted() && plateValidation() ? 'error' : platesCalculated() ? 'success' : 'neutral'"
+        />
+
+        <app-calculator-instructions>
+          <ol>
+            <li>Introduce el peso total que quieres levantar.</li>
+            <li>Indica cuánto pesan la barra y los seguros.</li>
+            <li>Configura los discos que realmente tienes disponibles.</li>
+          </ol>
+          <p>El peso objetivo incluye la barra y los discos de ambos lados.</p>
+        </app-calculator-instructions>
+
+        @if (appliedLoadMessage()) {
+          <p class="applied-message" aria-live="polite">{{ appliedLoadMessage() }}</p>
+        }
+
+        <div class="plate-layout">
+          <div>
+            <div class="form-section-label"><span>Paso 1</span><strong>Configura la carga</strong></div>
+            <div class="calculator-fields plate-fields">
+              <label>
+                <span>Peso objetivo</span>
+                <div class="number-field">
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="0.5"
+                    placeholder="Ej. 100"
+                    [value]="targetBarWeight() || ''"
+                    (input)="updateTargetBarWeight($event)"
+                  />
+                  <strong>{{ calculatorUnit() }}</strong>
+                </div>
+              </label>
+              <label>
+                <span>Peso de la barra</span>
+                <div class="number-field">
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="0.5"
+                    placeholder="Ej. 20"
+                    [value]="emptyBarWeight() || ''"
+                    (input)="updateEmptyBarWeight($event)"
+                  />
+                  <strong>{{ calculatorUnit() }}</strong>
+                </div>
+              </label>
+            </div>
+
+            <button
+              type="button"
+              class="inline-disclosure"
+              [attr.aria-expanded]="plateConfigurationOpen()"
+              aria-controls="plate-options"
+              (click)="plateConfigurationOpen.set(!plateConfigurationOpen())"
+            >
+              Configurar discos
+              <span aria-hidden="true">{{ plateConfigurationOpen() ? '−' : '+' }}</span>
+            </button>
+            @if (plateConfigurationOpen()) {
+              <div id="plate-options" class="plate-options">
+                <label>
+                  <span>Peso total de seguros</span>
+                  <div class="number-field">
+                    <input
+                      type="number"
+                      inputmode="decimal"
+                      min="0"
+                      step="0.5"
+                      placeholder="Opcional"
+                      [value]="collarWeight() || ''"
+                      (input)="updateCollarWeight($event)"
+                    />
+                    <strong>{{ calculatorUnit() }}</strong>
+                  </div>
+                </label>
+                <div>
+                  <span>Discos disponibles</span>
+                  <div class="inventory-grid">
+                    @for (plate of plateConfiguration().plates; track plate.weight) {
+                      <label class="inventory-item">
+                        <span>{{ plate.weight }} {{ calculatorUnit() }}</span>
+                        <input
+                          type="number"
+                          inputmode="numeric"
+                          min="0"
+                          step="1"
+                          [attr.aria-label]="'Cantidad de discos de ' + plate.weight + ' ' + calculatorUnit()"
+                          [value]="plate.quantity"
+                          (input)="updatePlateQuantity(plate.weight, $event)"
+                        />
+                      </label>
+                    }
+                  </div>
+                </div>
+                <label class="remember-settings">
+                  <input
+                    type="checkbox"
+                    [checked]="rememberStrengthSettings()"
+                    (change)="updateRememberStrengthSettings($event)"
+                  />
+                  <span>
+                    <strong>Recordar esta configuración</strong>
+                    <small>Guarda barra, seguros, discos, incremento y fórmula solo en este dispositivo.</small>
+                  </span>
+                </label>
+              </div>
+            }
+
+            <div class="calculation-action plate-action">
+              <span><small>Paso 2</small> Calcula la configuración</span>
+              <button type="button" class="primary-action" (click)="calculatePlates()">
+                Calcular discos
+              </button>
+            </div>
+          </div>
+
+          <div class="plate-result">
+            @if (platesAttempted() && plateValidation()) {
+              <p class="validation-message" role="alert">{{ plateValidation() }}</p>
+            } @else if (!platesCalculated()) {
+              <div class="empty-calculation-state">
+                <strong>Aún no hay resultado</strong>
+                <span>Introduce el peso total, la barra y pulsa “Calcular discos”.</span>
+              </div>
+            } @else if (plateCombination().exact; as exact) {
+              <div class="plate-success">
+                <span class="result-kicker">Peso alcanzado</span>
+                <strong class="plate-total">{{ formatCalculatorWeight(exact.total) }}</strong>
+                <div class="plate-result-summary">
+                  <div><span>Solicitado</span><strong>{{ formatCalculatorWeight(targetBarWeight()) }}</strong></div>
+                  <div><span>Alcanzado</span><strong>{{ formatCalculatorWeight(exact.total) }}</strong></div>
+                  <div><span>Diferencia</span><strong>Sin diferencia</strong></div>
+                </div>
+                @if (exact.perSide.length) {
+                  <div class="plate-stack" aria-label="Discos por lado">
+                    @for (plate of exact.perSide; track plate.weight) {
+                      <span>{{ plate.count }} × {{ plate.weight }} {{ calculatorUnit() }}</span>
+                    }
+                  </div>
+                } @else {
+                  <p>Solo la barra y los seguros.</p>
+                }
+                <div class="plate-breakdown">
+                  <div><span>Barra</span><strong>{{ formatCalculatorWeight(emptyBarWeight()) }}</strong></div>
+                  <div><span>Discos, ambos lados</span><strong>{{ formatCalculatorWeight(plateDiscTotal(exact.total)) }}</strong></div>
+                  @if (collarWeight() > 0) {
+                    <div><span>Seguros</span><strong>{{ formatCalculatorWeight(collarWeight()) }}</strong></div>
+                  }
+                  <div class="total"><span>Total</span><strong>{{ formatCalculatorWeight(exact.total) }}</strong></div>
+                </div>
+                @if (exact.perSide.length) {
+                  <div class="barbell-section">
+                    <span class="result-kicker">Montaje de la barra</span>
+                    <div class="barbell-visual" role="img" [attr.aria-label]="plateVisualLabel(exact)">
+                      <div class="plate-side left" aria-hidden="true">
+                        @for (plate of exact.perSide; track plate.weight) {
+                          @for (copy of plateCopies(plate.count); track copy) {
+                            <i class="plate-disc">{{ plate.weight }}</i>
+                          }
+                        }
+                      </div>
+                      <i class="bar-shaft" aria-hidden="true"></i>
+                      <div class="plate-side right" aria-hidden="true">
+                        @for (plate of exact.perSide; track plate.weight) {
+                          @for (copy of plateCopies(plate.count); track copy) {
+                            <i class="plate-disc">{{ plate.weight }}</i>
+                          }
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
+                <div class="calculator-next-step plate-next-step">
+                  <div>
+                    <span>Paso 3</span>
+                    <strong>Siguiente paso</strong>
+                    <small>Copia el montaje o prepara otro peso.</small>
+                  </div>
+                  <div>
+                    <button type="button" class="primary-action" (click)="copyPlateBreakdown(exact)">
+                      Copiar desglose
+                    </button>
+                    <button type="button" class="secondary-action" (click)="resetPlateCalculation()">
+                      Calcular otro peso
+                    </button>
+                  </div>
+                </div>
+                @if (plateResultMessage()) {
+                  <p class="plate-result-feedback" aria-live="polite">{{ plateResultMessage() }}</p>
+                }
+              </div>
+            } @else {
+              <div class="plate-alternatives" role="status">
+                <strong>No es posible formar exactamente {{ formatCalculatorWeight(targetBarWeight()) }} con los discos disponibles.</strong>
+                <p>Elige una alternativa cercana o cambia la configuración de discos.</p>
+                <button
+                  type="button"
+                  (click)="choosePlateAlternative(plateCombination().lower.total)"
+                >
+                  <span>Alternativa inferior</span>
+                  <strong>{{ formatCalculatorWeight(plateCombination().lower.total) }}</strong>
+                  <small>{{ formatSignedCalculatorWeight(plateCombination().lower.difference) }}</small>
+                </button>
+                @if (plateCombination().upper; as upper) {
+                  <button type="button" (click)="choosePlateAlternative(upper.total)">
+                    <span>Alternativa superior</span>
+                    <strong>{{ formatCalculatorWeight(upper.total) }}</strong>
+                    <small>{{ formatSignedCalculatorWeight(upper.difference) }}</small>
+                  </button>
+                }
+              </div>
+            }
           </div>
         </div>
       </section>
-    } @else {
-      <section class="empty-state">
-        <span class="loader"></span>
+      }
+    }
+
+    @if (strengthTab() === 'compare') {
+      <section class="panel strength-section">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Sesiones seleccionadas</p>
+            <h2>Comparador de sesiones</h2>
+          </div>
+        </div>
+        <label class="field-label compact-select">
+          <span>Ejercicio</span>
+          <select
+            class="exercise-select"
+            [value]="selectedStrengthExerciseKey()"
+            (change)="selectStrengthExercise($any($event.target).value)"
+          >
+            @for (exercise of strengthExerciseOptions(); track exercise.key) {
+              <option
+                [value]="exercise.key"
+                [selected]="exercise.key === selectedStrengthExerciseKey()"
+              >
+                {{ exercise.name }}
+              </option>
+            }
+          </select>
+        </label>
+
+        @if (selectedStrengthSessions().length >= 2) {
+          <div class="comparison-session-selectors">
+            <label>
+              <span>Sesión anterior</span>
+              <select
+                class="exercise-select"
+                [value]="comparisonReferenceSession()?.id ?? ''"
+                (change)="selectComparisonReference($any($event.target).value)"
+              >
+                @for (session of selectedStrengthSessions(); track session.id) {
+                  <option
+                    [value]="session.id"
+                    [selected]="session.id === comparisonReferenceSession()?.id"
+                  >
+                    {{ strengthSessionLabel(session) }}
+                  </option>
+                }
+              </select>
+            </label>
+            <label>
+              <span>Sesión actual</span>
+              <select
+                class="exercise-select"
+                [value]="comparisonCurrentSession()?.id ?? ''"
+                (change)="selectComparisonCurrent($any($event.target).value)"
+              >
+                @for (session of selectedStrengthSessions(); track session.id) {
+                  <option
+                    [value]="session.id"
+                    [selected]="session.id === comparisonCurrentSession()?.id"
+                  >
+                    {{ strengthSessionLabel(session) }}
+                  </option>
+                }
+              </select>
+            </label>
+          </div>
+        }
+
+        @if (sessionComparison(); as comparison) {
+          <article class="comparison-summary" aria-live="polite">
+            <span>Conclusión</span>
+            <h3>{{ comparisonHeadline(comparison) }}</h3>
+            <ul>
+              @for (reason of comparison.reasons; track reason) {
+                <li>{{ reason }}</li>
+              }
+            </ul>
+          </article>
+
+          <div class="comparison-metrics">
+            <div><span>Peso máximo</span><strong>{{ comparisonMetric(comparison.maxWeightChange, 'kg') }}</strong></div>
+            <div><span>Repeticiones</span><strong>{{ comparisonMetric(comparison.repsChange, 'reps') }}</strong></div>
+            <div><span>Volumen</span><strong>{{ comparisonMetric(comparison.volumeChange, 'kg') }}</strong></div>
+            <div><span>1RM estimado</span><strong>{{ comparisonMetric(comparison.oneRepMaxChange, 'kg') }}</strong></div>
+            <div><span>Series</span><strong>{{ comparisonMetric(comparison.seriesChange, 'series') }}</strong></div>
+          </div>
+
+          <div class="compare-set-list">
+            @for (row of comparisonSetRows(); track row.index) {
+              <article>
+                <strong>Serie {{ row.index }}</strong>
+                <span>Anterior: {{ row.reference }}</span>
+                <span>Actual: {{ row.current }}</span>
+                <small>{{ row.change }}</small>
+              </article>
+            }
+          </div>
+
+          @if (selectedStrengthPrescription(); as prescription) {
+            @if (progressionSuggestion(); as suggestion) {
+              <article class="recommendation-card">
+                <div>
+                  <span>Sugerencia · próxima sesión</span>
+                  <h3>{{ suggestion.headline }} {{ calculatorUnit() }}</h3>
+                </div>
+                <div class="recommendation-context">
+                  <p><span>Objetivo guardado</span><strong>{{ prescription.label }}</strong></p>
+                  <p><span>Resultado actual</span><strong>{{ latestStrengthResult() }}</strong></p>
+                  <p><span>Objetivo siguiente</span><strong>{{ suggestion.target }}</strong></p>
+                </div>
+                <p>{{ suggestion.reason }}</p>
+                <small>
+                  Confianza {{ suggestion.confidence }} · {{ progressionConfidenceExplanation() }}
+                </small>
+              </article>
+            }
+          } @else {
+            <section class="empty-state compact">
+              <strong>No hay suficientes datos para sugerir una próxima carga.</strong>
+              <span>Guarda una prescripción con series, rango de repeticiones y RIR.</span>
+            </section>
+          }
+        } @else {
+          <section class="empty-state compact">
+            <strong>No hay datos suficientes</strong>
+            <span>Registra al menos dos sesiones de este ejercicio para compararlas.</span>
+          </section>
+        }
+      </section>
+    }
+
+    @if (strengthTab() === 'records') {
+      <section class="panel strength-section">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Marcas detectadas</p>
+            <h2>Récords personales</h2>
+          </div>
+          <app-technical-tooltip
+            term="PR"
+            description="Mejor marca válida del mismo ejercicio frente a sesiones anteriores."
+          />
+        </div>
+        <label class="field-label compact-select">
+          <span>Ejercicio</span>
+          <select
+            class="exercise-select"
+            [value]="selectedStrengthExerciseKey()"
+            (change)="selectStrengthExercise($any($event.target).value)"
+          >
+            @for (exercise of strengthExerciseOptions(); track exercise.key) {
+              <option
+                [value]="exercise.key"
+                [selected]="exercise.key === selectedStrengthExerciseKey()"
+              >
+                {{ exercise.name }}
+              </option>
+            }
+          </select>
+        </label>
+        @if (currentPersonalRecords().length) {
+          <section class="current-records" aria-live="polite">
+            <div class="records-heading">
+              <div>
+                <span>Récords vigentes</span>
+                <strong>{{ selectedStrengthExerciseName() }}</strong>
+              </div>
+            </div>
+            <div class="record-grid">
+              @for (record of currentPersonalRecords(); track record.type) {
+                <article class="record-card current">
+                  <span>{{ record.label }}</span>
+                  <strong>{{ record.value }}</strong>
+                  <small>Entrenamiento #{{ record.sessionIndex }}</small>
+                </article>
+              }
+            </div>
+          </section>
+
+          @if (historicalPersonalRecords().length) {
+            <section class="record-history">
+              <button
+                type="button"
+                class="inline-disclosure"
+                [attr.aria-expanded]="recordHistoryOpen()"
+                aria-controls="record-history-list"
+                (click)="recordHistoryOpen.set(!recordHistoryOpen())"
+              >
+                Historial de récords
+                <span>{{ historicalPersonalRecords().length }} marcas · {{ recordHistoryOpen() ? '−' : '+' }}</span>
+              </button>
+              @if (recordHistoryOpen()) {
+                <div id="record-history-list" class="record-history-list">
+                  @for (record of historicalPersonalRecords(); track record.id) {
+                    <article>
+                      <span>Entrenamiento #{{ record.sessionIndex }}</span>
+                      <div>
+                        <strong>{{ recordLabel(record) }}</strong>
+                        <small>{{ recordValue(record) }}</small>
+                      </div>
+                      <small>Anterior: {{ previousRecordValue(record) }}</small>
+                    </article>
+                  }
+                </div>
+              }
+            </section>
+          }
+        } @else {
+          <section class="empty-state compact">
+            <strong>Aún no se han detectado récords para este ejercicio.</strong>
+            <span>Registra una serie válida para establecer la primera marca.</span>
+          </section>
+        }
+      </section>
+    }
+
+    @if (strengthTab() === 'history') {
+      <section class="panel strength-section">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Historial existente</p>
+            <h2>Evolución del movimiento</h2>
+          </div>
+          <button type="button" class="text-button" (click)="setActiveView('progress')">
+            Ver progreso completo
+          </button>
+        </div>
+        <div class="history-controls">
+          <label class="field-label compact-select">
+            <span>Ejercicio</span>
+            <select
+              class="exercise-select"
+              [value]="selectedStrengthExerciseKey()"
+              (change)="selectStrengthExercise($any($event.target).value)"
+            >
+              @for (exercise of strengthExerciseOptions(); track exercise.key) {
+                <option
+                  [value]="exercise.key"
+                  [selected]="exercise.key === selectedStrengthExerciseKey()"
+                >
+                  {{ exercise.name }}
+                </option>
+              }
+            </select>
+          </label>
+          <label class="field-label compact-select">
+            <span>Métrica</span>
+            <select
+              class="exercise-select"
+              [value]="historyMetric()"
+              (change)="updateHistoryMetric($any($event.target).value)"
+            >
+              <option value="maxWeight">Carga máxima</option>
+              <option value="oneRepMax">1RM estimado</option>
+              <option value="reps">Repeticiones</option>
+              <option value="volume">Volumen</option>
+            </select>
+          </label>
+        </div>
+        @if (selectedExercise(); as movement) {
+          <div class="history-strength-grid">
+            <div><span>Actual</span><strong>{{ formatKg(movement.latestWeightKg) }}</strong></div>
+            <div><span>Cambio</span><strong>{{ formatSignedKg(movement.weightDeltaKg) }}</strong></div>
+            <div><span>Mejor</span><strong>{{ formatKg(movement.bestWeightKg) }}</strong></div>
+            <div><span>1RM</span><strong>{{ formatKg(movement.bestOneRepMaxKg) }}</strong></div>
+          </div>
+          @if (exerciseTrendDots().length) {
+            <div class="line-chart strength-chart" [attr.aria-label]="'Evolución de ' + historyMetricLabel()">
+              <svg viewBox="0 0 600 220" role="img">
+                @for (line of historyChartGrid(); track line.y) {
+                  <line class="chart-grid-line" x1="64" x2="574" [attr.y1]="line.y" [attr.y2]="line.y" />
+                  <text class="chart-axis-label" x="56" [attr.y]="line.y + 4" text-anchor="end">
+                    {{ formatHistoryMetric(line.value) }}
+                  </text>
+                }
+                @if (exerciseTrendDots().length > 1) {
+                  <polyline fill="none" [attr.points]="exerciseTrendLine()" />
+                }
+                @for (dot of exerciseTrendDots(); track dot.label + dot.x) {
+                  <g
+                    class="chart-point"
+                    tabindex="0"
+                    role="img"
+                    [attr.aria-label]="dot.label + ': ' + formatHistoryMetric(dot.value)"
+                  >
+                    <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="6" />
+                    <text class="point-tooltip" [attr.x]="dot.x" [attr.y]="dot.y - 13" text-anchor="middle">
+                      {{ formatHistoryMetric(dot.value) }}
+                    </text>
+                    <text class="chart-axis-label x-label" [attr.x]="dot.x" y="207" text-anchor="middle">
+                      {{ dot.label }}
+                    </text>
+                  </g>
+                }
+              </svg>
+            </div>
+          } @else {
+            <section class="empty-state compact">
+              <strong>Sin evolución disponible</strong>
+              <span>Tu evolución aparecerá después de registrar la primera sesión.</span>
+            </section>
+          }
+        } @else {
+          <section class="empty-state compact">
+            <strong>Sin historial para este ejercicio</strong>
+            <span>Tu evolución aparecerá después de registrar la primera sesión.</span>
+          </section>
+        }
       </section>
     }
   }
 
   @if (activeView() === 'progress') {
-    <section class="topbar" aria-label="CSV controls">
+    <section class="topbar" aria-label="Controles de progreso">
       <div>
         <p class="eyebrow">Progreso</p>
-        <h2>CSV por entreno</h2>
+        <h1>Tu historial de entrenamiento</h1>
       </div>
 
       <div class="actions">
-        <label class="file-button">
-          <input type="file" accept=".csv,.tsv,.txt" (change)="onFileSelected($event)" />
-          <span>Subir CSV</span>
-        </label>
-        <button type="button" class="ghost-button" (click)="loadSampleCsv()" [disabled]="isLoading()">
-          Muestra
+        <button
+          type="button"
+          class="ghost-button"
+          [attr.aria-expanded]="importPanelOpen()"
+          aria-controls="import-panel"
+          (click)="importPanelOpen.set(!importPanelOpen())"
+        >
+          Importar datos
         </button>
       </div>
     </section>
 
-    <section class="input-panel" aria-label="CSV input">
-      <textarea
-        [value]="csvText()"
-        (input)="updateCsvText($event)"
-        spellcheck="false"
-        aria-label="CSV"
-      ></textarea>
-      <div class="input-footer">
-        <span>{{ csvText().length.toLocaleString() }} caracteres</span>
-        <button type="button" (click)="parseCurrentText()">Analizar</button>
-      </div>
-    </section>
+    @if (importPanelOpen()) {
+      <section id="import-panel" class="input-panel" aria-label="Importar historial">
+        <div class="import-toolbar">
+          <label class="file-button">
+            <input type="file" accept=".csv,.tsv,.txt" (change)="onFileSelected($event)" />
+            <span>Elegir archivo</span>
+          </label>
+          <button
+            type="button"
+            class="ghost-button"
+            (click)="loadSampleCsv()"
+            [disabled]="isLoading()"
+          >
+            Usar datos de muestra
+          </button>
+        </div>
+        <textarea
+          [value]="csvText()"
+          (input)="updateCsvText($event)"
+          spellcheck="false"
+          aria-label="Contenido del historial"
+        ></textarea>
+        <div class="input-footer">
+          <span>{{ csvText().length.toLocaleString() }} caracteres</span>
+          <button type="button" (click)="parseCurrentText()">Analizar historial</button>
+        </div>
+      </section>
+    }
 
     @if (error(); as message) {
       <section class="notice" role="alert">
@@ -416,7 +1392,7 @@
             <strong>{{ log.sourceName }}</strong>
           </div>
           <div>
-            <span>Filas</span>
+            <span>Registros</span>
             <strong>{{ formatInteger(log.rowsSeen) }}</strong>
           </div>
           <div>
@@ -510,16 +1486,33 @@
                 <h2>Progreso</h2>
               </div>
 
-              <select
-                class="exercise-select"
-                [value]="selectedExercise()?.key ?? ''"
-                (change)="selectExercise($any($event.target).value)"
-                aria-label="Ejercicio"
-              >
-                @for (movement of progress.topMovements; track movement.key) {
-                  <option [value]="movement.key">{{ movement.name }}</option>
-                }
-              </select>
+              <div class="history-controls inline">
+                <label>
+                  <span>Ejercicio</span>
+                  <select
+                    class="exercise-select"
+                    [value]="selectedExercise()?.key ?? ''"
+                    (change)="selectExercise($any($event.target).value)"
+                  >
+                    @for (movement of progress.topMovements; track movement.key) {
+                      <option [value]="movement.key">{{ movement.name }}</option>
+                    }
+                  </select>
+                </label>
+                <label>
+                  <span>Métrica</span>
+                  <select
+                    class="exercise-select"
+                    [value]="historyMetric()"
+                    (change)="updateHistoryMetric($any($event.target).value)"
+                  >
+                    <option value="maxWeight">Carga máxima</option>
+                    <option value="oneRepMax">1RM estimado</option>
+                    <option value="reps">Repeticiones</option>
+                    <option value="volume">Volumen</option>
+                  </select>
+                </label>
+              </div>
             </div>
 
             @if (selectedExercise(); as movement) {
@@ -546,16 +1539,41 @@
 
               <div class="line-chart">
                 @if (exerciseTrendDots().length) {
-                  <svg viewBox="0 0 560 180" role="img" aria-label="Progreso del ejercicio">
+                  <svg
+                    viewBox="0 0 600 220"
+                    role="img"
+                    [attr.aria-label]="'Progreso por ' + historyMetricLabel()"
+                  >
+                    @for (line of historyChartGrid(); track line.y) {
+                      <line class="chart-grid-line" x1="64" x2="574" [attr.y1]="line.y" [attr.y2]="line.y" />
+                      <text class="chart-axis-label" x="56" [attr.y]="line.y + 4" text-anchor="end">
+                        {{ formatHistoryMetric(line.value) }}
+                      </text>
+                    }
                     @if (exerciseTrendDots().length > 1) {
-                      <polyline [attr.points]="exerciseTrendLine()" />
+                      <polyline fill="none" [attr.points]="exerciseTrendLine()" />
                     }
                     @for (dot of exerciseTrendDots(); track dot.label + dot.x) {
-                      <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="5" />
+                      <g
+                        class="chart-point"
+                        tabindex="0"
+                        role="img"
+                        [attr.aria-label]="dot.label + ': ' + formatHistoryMetric(dot.value)"
+                      >
+                        <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="6" />
+                        <text class="point-tooltip" [attr.x]="dot.x" [attr.y]="dot.y - 13" text-anchor="middle">
+                          {{ formatHistoryMetric(dot.value) }}
+                        </text>
+                        <text class="chart-axis-label x-label" [attr.x]="dot.x" y="207" text-anchor="middle">
+                          {{ dot.label }}
+                        </text>
+                      </g>
                     }
                   </svg>
                 } @else {
-                  <div class="empty-chart">Sin datos</div>
+                  <div class="empty-chart">
+                    Tu evolución aparecerá después de registrar la primera sesión.
+                  </div>
                 }
               </div>
 
@@ -641,9 +1659,15 @@
     } @else {
       <section class="empty-state">
         @if (isLoading()) {
-          <span class="loader"></span>
+          <div class="loading-skeleton compact" aria-label="Cargando historial" aria-busy="true">
+            <span></span>
+            <span></span>
+          </div>
         } @else {
-          <span>Sin CSV</span>
+          <div>
+            <strong>Sin historial todavía</strong>
+            <p>Importa tus entrenamientos para ver volumen, 1RM y progreso por ejercicio.</p>
+          </div>
         }
       </section>
     }

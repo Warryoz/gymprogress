@@ -1,0 +1,214 @@
+:host {
+  display: block;
+}
+
+.exercise-card {
+  overflow: visible;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  background: var(--surface);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.exercise-card.main {
+  border-left-color: var(--accent);
+}
+
+.exercise-card.care {
+  border-left-color: var(--success);
+}
+
+.exercise-card.support {
+  border-left-color: var(--text-secondary);
+}
+
+.exercise-card.completed {
+  border-color: color-mix(in srgb, var(--success) 52%, var(--border));
+  border-left-color: var(--success);
+  background: color-mix(in srgb, var(--success) 7%, var(--surface-elevated));
+}
+
+.exercise-title {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+}
+
+h3,
+p {
+  margin: 0;
+}
+
+h3 {
+  max-width: 720px;
+  font-size: 1.08rem;
+  line-height: 1.3;
+}
+
+.block-label {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--text-secondary);
+  background: var(--surface-muted);
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.block-label em {
+  margin-left: var(--space-2);
+  color: var(--success);
+  font-style: normal;
+}
+
+.prescription {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  margin-top: var(--space-4);
+  width: fit-content;
+  max-width: 100%;
+  overflow: visible;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  background: var(--surface-elevated);
+}
+
+.prescription > strong,
+.prescription > span,
+.prescription app-technical-tooltip {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: .84rem;
+}
+
+.prescription > strong {
+  color: var(--text-primary);
+}
+
+.prescription > span,
+.prescription app-technical-tooltip {
+  margin-left: 10px;
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
+}
+
+.rest {
+  margin-top: var(--space-3);
+  color: var(--text-secondary);
+  font-size: .86rem;
+}
+
+.details-toggle {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: var(--space-3);
+  border: 0;
+  border-top: 1px solid var(--border);
+  padding: var(--space-3) 0 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: transparent;
+  font: inherit;
+  font-size: .84rem;
+  font-weight: 800;
+}
+
+.details-toggle:hover {
+  color: var(--accent);
+}
+
+.complete-action {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 46%, var(--border));
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  font: inherit;
+  font-weight: 800;
+}
+
+.complete-action.completed {
+  border-color: color-mix(in srgb, var(--success) 55%, var(--border));
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+}
+
+.complete-action:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  outline-offset: 2px;
+}
+
+.details-toggle:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  outline-offset: 3px;
+}
+
+.exercise-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.exercise-details[hidden] {
+  display: none;
+}
+
+.exercise-details > div {
+  min-width: 0;
+}
+
+.exercise-details span,
+.exercise-details app-technical-tooltip {
+  color: var(--text-secondary);
+  font-size: .76rem;
+  font-weight: 750;
+}
+
+.exercise-details p {
+  margin-top: 4px;
+  color: var(--text-primary);
+  font-size: .88rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 639px) {
+  .exercise-card {
+    padding: var(--space-3);
+  }
+
+  .exercise-details {
+    grid-template-columns: 1fr;
+  }
+
+  .prescription {
+    width: 100%;
+    row-gap: 7px;
+  }
+}

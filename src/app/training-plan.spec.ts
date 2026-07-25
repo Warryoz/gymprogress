@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseTrainingPlanCsv } from './training-plan';
+import { formatSuggestedLoad, parseTrainingPlanCsv } from './training-plan';
 
 const SAMPLE = `semana,dia,enfoque,fase_semana,bloque,ejercicio,series,reps_o_tiempo,,carga_sugerida,rpe_rir,tempo,descanso,objetivo,regla_tendon_24h,progresion,notas
 1,D1 Push,Pecho,Base,Tendon/activacion,Isometrico empuje,3-5,30-45 s,,40-60%,dolor <=3/10,isometrico,60-90 s,Analgesia,Regla 24h,"Sube reps, luego carga",Sin dolor
@@ -15,5 +15,12 @@ describe('parseTrainingPlanCsv', () => {
     expect(parsed.weeks[0].days.map((day) => day.name)).toEqual(['D1 Push', 'D2 Pull']);
     expect(parsed.weeks[0].sets).toBe(11);
     expect(parsed.weeks[0].tendonRows).toBe(1);
+  });
+
+  it('adds kg only to numeric loads', () => {
+    expect(formatSuggestedLoad('62.5')).toBe('62.5 kg');
+    expect(formatSuggestedLoad('BW')).toBe('BW');
+    expect(formatSuggestedLoad('40-60%')).toBe('40-60%');
+    expect(formatSuggestedLoad('')).toBe('-');
   });
 });

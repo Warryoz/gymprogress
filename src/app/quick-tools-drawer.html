@@ -1,0 +1,414 @@
+<div class="quick-tools-backdrop" (click)="close.emit()">
+  <aside
+    class="quick-tools-drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="quick-tools-title"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="drawer-header">
+      <div>
+        @if (selectedTool()) {
+          <button type="button" class="back-button" (click)="selectedTool.set(null)">
+            ← Herramientas
+          </button>
+          <h2 id="quick-tools-title">{{ toolTitle(selectedTool()!) }}</h2>
+        } @else {
+          <p class="eyebrow">Utilidades secundarias</p>
+          <h2 id="quick-tools-title">Herramientas rápidas</h2>
+        }
+        <p>{{ selectedExercise() || 'Sin ejercicio seleccionado' }}</p>
+      </div>
+      <button type="button" class="close-button" aria-label="Cerrar herramientas rápidas" (click)="close.emit()">
+        ×
+      </button>
+    </header>
+
+    <p class="sr-announcement" aria-live="polite">{{ announcement() }}</p>
+
+    @if (!selectedTool()) {
+      <div class="tool-grid">
+        @for (tool of tools; track tool.id) {
+          <button type="button" (click)="selectTool(tool.id)">
+            <span class="tool-icon" aria-hidden="true">{{ tool.icon }}</span>
+            <span>
+              <strong>{{ tool.title }}</strong>
+              <small>{{ tool.description }}</small>
+            </span>
+            <i aria-hidden="true">›</i>
+          </button>
+        }
+      </div>
+    } @else {
+      <div class="tool-content">
+        @if (lastSet()) {
+          <button type="button" class="use-last-button" (click)="useLastSeries()">
+            Usar última serie
+          </button>
+        }
+
+        @switch (selectedTool()) {
+          @case ('effort') {
+            <section class="tool-section">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Esfuerzo</p>
+                  <h3>Interpreta una serie</h3>
+                </div>
+                <app-technical-tooltip
+                  [term]="effortScale() === 'rir' ? 'RIR' : 'RPE'"
+                  [description]="
+                    effortScale() === 'rir'
+                      ? 'Repeticiones en reserva. RIR 2 significa que probablemente podrías realizar unas dos repeticiones adicionales.'
+                      : 'Escala subjetiva de esfuerzo. RPE 10 representa un esfuerzo máximo sin repeticiones disponibles.'
+                  "
+                />
+              </div>
+              <div class="tool-fields">
+                <label>
+                  <span>Peso</span>
+                  <div class="input-with-unit">
+                    <input type="number" inputmode="decimal" min="0" [value]="weight()" (input)="inputNumber(weight, $event)" />
+                    <strong>{{ unit() }}</strong>
+                  </div>
+                </label>
+                <label>
+                  <span>Repeticiones</span>
+                  <input type="number" inputmode="numeric" min="1" max="20" [value]="reps()" (input)="inputNumber(reps, $event)" />
+                </label>
+                <label>
+                  <span>Escala</span>
+                  <select [value]="effortScale()" (change)="setEffortScale($any($event.target).value)">
+                    <option value="rir">RIR</option>
+                    <option value="rpe">RPE</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{{ effortScale().toUpperCase() }}</span>
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    step="0.5"
+                    [min]="effortScale() === 'rir' ? 0 : 5"
+                    [max]="effortScale() === 'rir' ? 5 : 10"
+                    [value]="effortValue()"
+                    (input)="inputNumber(effortValue, $event)"
+                  />
+                </label>
+                <label>
+                  <span>RIR objetivo</span>
+                  <input type="number" inputmode="decimal" min="0" max="5" step="0.5" [value]="targetRir()" (input)="inputNumber(targetRir, $event)" />
+                </label>
+              </div>
+              @if (effortResult().rir !== null) {
+                <div class="primary-result" aria-live="polite">
+                  <span>Serie registrada</span>
+                  <strong>
+                    {{ format(weight()) }} {{ unit() }} × {{ reps() }} @
+                    {{ effortScale().toUpperCase() }} {{ format(effortValue()) }}
+                  </strong>
+                  <p>{{ effortResult().interpretation }}</p>
+                </div>
+                <div class="result-grid">
+                  <div><span>Reps potenciales</span><strong>{{ effortResult().potentialReps }}</strong></div>
+                  <div><span>RPE aproximado</span><strong>{{ effortResult().rpe }}</strong></div>
+                  <div><span>1RM directo</span><strong>{{ format(effortResult().direct) }} {{ unit() }}</strong></div>
+                  <div><span>1RM ajustado</span><strong>{{ format(effortResult().adjusted) }} {{ unit() }}</strong></div>
+                </div>
+                <p class="tool-note">La equivalencia y el ajuste son aproximados.</p>
+              } @else {
+                <p class="tool-error" role="alert">Introduce un RIR entre 0–5 o un RPE entre 5–10.</p>
+              }
+            </section>
+          }
+
+          @case ('notation') {
+            <section class="tool-section">
+              <div class="section-heading">
+                <div><p class="eyebrow">Interpretar</p><h3>Notación @</h3></div>
+                <app-technical-tooltip
+                  term="Símbolo @"
+                  description="Se lee como ‘a’ o ‘con’. Su significado depende de lo que aparezca después: carga, porcentaje, RIR o RPE."
+                />
+              </div>
+              <label class="full-field">
+                <span>Entrada libre</span>
+                <input [value]="notationRaw()" (input)="notationRaw.set($any($event.target).value)" placeholder="4x8 @ 70kg RIR2" />
+              </label>
+              @if (parsedNotation().valid) {
+                <div class="primary-result" aria-live="polite">
+                  <span>Notación normalizada</span>
+                  <strong>{{ parsedNotation().normalized }}</strong>
+                </div>
+                <div class="result-grid compact-results">
+                  <div><span>Series</span><strong>{{ parsedNotation().sets }}</strong></div>
+                  <div><span>Repeticiones</span><strong>{{ parsedNotation().repsOrTime }}</strong></div>
+                  <div><span>Carga</span><strong>{{ parsedNotation().load ?? '—' }} {{ parsedNotation().unit ?? '' }}</strong></div>
+                  <div><span>Esfuerzo</span><strong>{{ parsedNotation().effortScale?.toUpperCase() ?? '—' }} {{ parsedNotation().effort ?? '' }}</strong></div>
+                </div>
+              } @else {
+                <p class="tool-error" role="alert">{{ parsedNotation().message }}</p>
+              }
+
+              <hr />
+              <p class="eyebrow">Generar</p>
+              <div class="tool-fields">
+                <label><span>Series</span><input type="number" min="1" [value]="notationSets()" (input)="inputNumber(notationSets, $event)" /></label>
+                <label><span>Reps o tiempo</span><input [value]="notationReps()" (input)="notationReps.set($any($event.target).value)" /></label>
+                <label><span>Carga</span><input type="number" inputmode="decimal" [value]="notationLoad()" (input)="inputNumber(notationLoad, $event)" /></label>
+                <label><span>RIR</span><input type="number" min="0" max="5" [value]="notationEffort()" (input)="inputNumber(notationEffort, $event)" /></label>
+                <label><span>Tempo</span><input [value]="notationTempo()" (input)="notationTempo.set($any($event.target).value)" placeholder="3-1-1" /></label>
+                <label><span>Descanso</span><input [value]="notationRest()" (input)="notationRest.set($any($event.target).value)" placeholder="2 min" /></label>
+              </div>
+              <div class="primary-result">
+                <span>Resultado</span>
+                <strong>{{ generatedNotation() }}</strong>
+              </div>
+              <div class="tool-actions">
+                <button type="button" (click)="copyNotation(generatedNotation())">Copiar notación</button>
+                <button type="button" class="primary" (click)="applyNotation.emit(generatedNotation())">Guardar como objetivo</button>
+              </div>
+            </section>
+          }
+
+          @case ('targetLoad') {
+            <section class="tool-section">
+              <p class="eyebrow">Cambio de esfuerzo</p>
+              <h3>Carga objetivo según RIR</h3>
+              <div class="tool-fields">
+                <label><span>Peso actual ({{ unit() }})</span><input type="number" inputmode="decimal" [value]="weight()" (input)="inputNumber(weight, $event)" /></label>
+                <label><span>Reps actuales</span><input type="number" [value]="reps()" (input)="inputNumber(reps, $event)" /></label>
+                <label><span>RIR actual</span><input type="number" min="0" max="5" [value]="targetCurrentRir()" (input)="inputNumber(targetCurrentRir, $event)" /></label>
+                <label><span>Reps objetivo</span><input type="number" [value]="targetReps()" (input)="inputNumber(targetReps, $event)" /></label>
+                <label><span>RIR objetivo</span><input type="number" min="0" max="5" [value]="targetEffort()" (input)="inputNumber(targetEffort, $event)" /></label>
+                <div class="read-only-field"><span>Incremento</span><strong>{{ increment() }} {{ unit() }}</strong></div>
+              </div>
+              <div class="primary-result" aria-live="polite">
+                <span>Carga estimada</span>
+                <strong>{{ format(targetLoad().estimated) }} {{ unit() }}</strong>
+                <p>Rango razonable: {{ format(targetLoad().lower) }}–{{ format(targetLoad().upper) }} {{ unit() }}</p>
+                <small>Prueba la carga central y ajusta según velocidad y RIR real.</small>
+              </div>
+              <div class="tool-actions">
+                <button type="button" (click)="applyWeight.emit(targetLoad().estimated)">Aplicar al peso actual</button>
+                <button type="button" class="primary" (click)="sendLoad(targetLoad().estimated)">Ver discos</button>
+              </div>
+            </section>
+          }
+
+          @case ('equivalences') {
+            <section class="tool-section">
+              <p class="eyebrow">Mismo rendimiento estimado</p>
+              <h3>Equivalencias por repeticiones</h3>
+              <div class="tool-fields">
+                <label><span>Peso ({{ unit() }})</span><input type="number" [value]="weight()" (input)="inputNumber(weight, $event)" /></label>
+                <label><span>Repeticiones</span><input type="number" [value]="reps()" (input)="inputNumber(reps, $event)" /></label>
+                <label><span>RIR</span><input type="number" min="0" max="5" [value]="equivalentRir()" (input)="inputNumber(equivalentRir, $event)" /></label>
+                <label>
+                  <span>Fórmula</span>
+                  <select [value]="formula()" (change)="formula.set($any($event.target).value)">
+                    <option value="epley">Epley</option><option value="brzycki">Brzycki</option><option value="lombardi">Lombardi</option><option value="average">Promedio</option>
+                  </select>
+                </label>
+              </div>
+              <div class="equivalence-list" aria-live="polite">
+                @for (item of equivalents(); track item.reps) {
+                  <button type="button" (click)="sendLoad(item.weight)">
+                    <span>{{ item.reps }} repeticiones</span>
+                    <strong>{{ format(item.weight) }} {{ item.unit }}</strong>
+                    <small>Enviar a discos</small>
+                  </button>
+                }
+              </div>
+              <p class="tool-note">Son equivalencias aproximadas y pueden variar según el ejercicio y la persona.</p>
+            </section>
+          }
+
+          @case ('warmup') {
+            <section class="tool-section">
+              <p class="eyebrow">Series de aproximación</p>
+              <h3>Generador de calentamiento</h3>
+              <div class="tool-fields">
+                <label><span>Peso de trabajo ({{ unit() }})</span><input type="number" [value]="weight()" (input)="inputNumber(weight, $event)" /></label>
+                <label>
+                  <span>Nivel</span>
+                  <select [value]="warmupLevel()" (change)="warmupLevel.set($any($event.target).value)">
+                    <option value="short">Corto</option><option value="normal">Normal</option><option value="extensive">Extenso</option>
+                  </select>
+                </label>
+                <label class="check-field"><input type="checkbox" [checked]="warmupAccessory()" (change)="warmupAccessory.set($any($event.target).checked)" /><span>Ejercicio accesorio</span></label>
+                <div class="read-only-field"><span>Barra</span><strong>{{ barWeight() }} {{ unit() }}</strong></div>
+              </div>
+              <button type="button" class="wide-primary" (click)="generateWarmup()">Generar calentamiento</button>
+              @if (warmupSets().length) {
+                <div class="editable-set-list" aria-live="polite">
+                  @for (set of warmupSets(); track set.id; let index = $index) {
+                    <div>
+                      <strong>{{ set.label }}</strong>
+                      <label><span>Peso</span><input type="number" [value]="set.weight" (input)="updateWarmup(index, 'weight', $event)" /></label>
+                      <label><span>Reps</span><input type="number" [value]="set.reps" (input)="updateWarmup(index, 'reps', $event)" /></label>
+                      <button type="button" aria-label="Enviar serie a discos" (click)="sendLoad(set.weight)">Discos</button>
+                      <button type="button" aria-label="Eliminar serie" (click)="removeWarmup(index)">×</button>
+                    </div>
+                  }
+                </div>
+                <p class="tool-note">Sugerencia editable; no es obligatorio completar todas las series.</p>
+              }
+            </section>
+          }
+
+          @case ('progression') {
+            <section class="tool-section">
+              <p class="eyebrow">Doble progresión</p>
+              <h3>Próxima carga</h3>
+              <div class="tool-fields">
+                <label><span>Peso ({{ unit() }})</span><input type="number" [value]="weight()" (input)="inputNumber(weight, $event)" /></label>
+                <label><span>Series</span><input type="number" min="1" [value]="progressionSets()" (input)="inputNumber(progressionSets, $event)" /></label>
+                <label><span>Rango mínimo</span><input type="number" [value]="progressionMin()" (input)="inputNumber(progressionMin, $event)" /></label>
+                <label><span>Rango máximo</span><input type="number" [value]="progressionMax()" (input)="inputNumber(progressionMax, $event)" /></label>
+                <label><span>RIR objetivo</span><input type="number" min="0" max="5" [value]="progressionRir()" (input)="inputNumber(progressionRir, $event)" /></label>
+                <label><span>RIR registrado</span><input type="number" min="0" max="5" [value]="progressionRecordedRir()" (input)="inputNumber(progressionRecordedRir, $event)" /></label>
+              </div>
+              <label class="full-field"><span>Repeticiones por serie</span><input [value]="progressionResults()" (input)="progressionResults.set($any($event.target).value)" placeholder="12, 11, 10" /></label>
+              <div class="primary-result" aria-live="polite">
+                <span>Sugerencia · confianza {{ progression().confidence }}</span>
+                <strong>{{ progression().recommendation }}</strong>
+                <small>Peso sugerido: {{ format(progression().suggestedWeight) }} {{ unit() }}</small>
+                <p>{{ progression().reason }}</p>
+                <small>Objetivo: {{ progression().target }}</small>
+              </div>
+              <div class="tool-actions">
+                <button type="button" (click)="applyWeight.emit(progression().suggestedWeight)">Aplicar peso</button>
+                <button type="button" class="primary" (click)="sendLoad(progression().suggestedWeight)">Ver discos</button>
+              </div>
+            </section>
+          }
+
+          @case ('volume') {
+            <section class="tool-section">
+              <div class="section-heading">
+                <div><p class="eyebrow">Carga acumulada</p><h3>Calculadora de volumen</h3></div>
+                <app-technical-tooltip term="Volumen" description="Resume el trabajo realizado, pero no mide por sí solo la calidad o el estímulo." />
+              </div>
+              <div class="volume-list">
+                @for (set of volumeSets(); track $index; let index = $index) {
+                  <div>
+                    <strong>Serie {{ index + 1 }}</strong>
+                    <label><span>Peso</span><input type="number" [value]="set.weight" (input)="updateVolumeSet(index, 'weight', $event)" /></label>
+                    <label><span>Reps</span><input type="number" [value]="set.reps" (input)="updateVolumeSet(index, 'reps', $event)" /></label>
+                    <span>{{ format(volume().volumeBySet[index] || 0) }} {{ unit() }}</span>
+                    <button type="button" aria-label="Eliminar serie" (click)="removeVolumeSet(index)">×</button>
+                  </div>
+                }
+              </div>
+              <button type="button" class="add-set-button" (click)="addVolumeSet()">+ Añadir serie</button>
+              <div class="primary-result" aria-live="polite">
+                <span>Volumen total</span><strong>{{ format(volume().totalVolume) }} {{ unit() }}</strong>
+              </div>
+              <div class="result-grid">
+                <div><span>Repeticiones</span><strong>{{ volume().totalReps }}</strong></div>
+                <div><span>Peso promedio</span><strong>{{ format(volume().averageWeight) }} {{ unit() }}</strong></div>
+                <div><span>Peso máximo</span><strong>{{ format(volume().maxWeight) }} {{ unit() }}</strong></div>
+                <div><span>Series</span><strong>{{ volume().setCount }}</strong></div>
+              </div>
+            </section>
+          }
+
+          @case ('effortComparison') {
+            <section class="tool-section">
+              <p class="eyebrow">Dos series</p>
+              <h3>Comparador de esfuerzo</h3>
+              <div class="series-comparison-fields">
+                <fieldset>
+                  <legend>Serie A</legend>
+                  <label><span>Peso</span><input type="number" [value]="compareAWeight()" (input)="inputNumber(compareAWeight, $event)" /></label>
+                  <label><span>Reps</span><input type="number" [value]="compareAReps()" (input)="inputNumber(compareAReps, $event)" /></label>
+                  <label><span>RIR</span><input type="number" min="0" max="5" [value]="compareARir()" (input)="inputNumber(compareARir, $event)" /></label>
+                </fieldset>
+                <fieldset>
+                  <legend>Serie B</legend>
+                  <label><span>Peso</span><input type="number" [value]="compareBWeight()" (input)="inputNumber(compareBWeight, $event)" /></label>
+                  <label><span>Reps</span><input type="number" [value]="compareBReps()" (input)="inputNumber(compareBReps, $event)" /></label>
+                  <label><span>RIR</span><input type="number" min="0" max="5" [value]="compareBRir()" (input)="inputNumber(compareBRir, $event)" /></label>
+                </fieldset>
+              </div>
+              <div class="primary-result" aria-live="polite">
+                <span>{{ effortComparison().status }}</span>
+                <strong>{{ effortComparison().summary }}</strong>
+              </div>
+              <div class="result-grid">
+                <div><span>1RM ajustado A</span><strong>{{ format(effortComparison().adjustedOneRepMaxA) }} kg</strong></div>
+                <div><span>1RM ajustado B</span><strong>{{ format(effortComparison().adjustedOneRepMaxB) }} kg</strong></div>
+                <div><span>Volumen A</span><strong>{{ format(effortComparison().volumeA) }} kg</strong></div>
+                <div><span>Volumen B</span><strong>{{ format(effortComparison().volumeB) }} kg</strong></div>
+              </div>
+            </section>
+          }
+
+          @case ('timer') {
+            <section class="tool-section timer-tool">
+              <p class="eyebrow">Descanso</p>
+              <h3>Temporizador rápido</h3>
+              <label class="full-field">
+                <span>Tipo de ejercicio</span>
+                <select [value]="timerCategory()" (change)="setTimerCategory($any($event.target).value)">
+                  <option value="main">Principal</option>
+                  <option value="accessory">Accesorio</option>
+                  <option value="activation">Activación</option>
+                  <option value="isometric">Isométrico</option>
+                </select>
+              </label>
+              <div class="timer-presets">
+                @for (seconds of [30, 45, 60, 90, 120, 180, 300]; track seconds) {
+                  <button type="button" [class.active]="timerPreset() === seconds" (click)="setTimer(seconds)">
+                    {{ seconds < 60 ? seconds + ' s' : seconds / 60 + ' min' }}
+                  </button>
+                }
+              </div>
+              <div class="custom-timer">
+                <label>
+                  <span>Personalizado (segundos)</span>
+                  <input type="number" inputmode="numeric" min="1" [value]="timerCustom()" (input)="inputNumber(timerCustom, $event)" />
+                </label>
+                <button type="button" (click)="setTimer(timerCustom())">Aplicar</button>
+              </div>
+              <strong class="timer-display" aria-live="polite">{{ timerLabel() }}</strong>
+              <div class="timer-actions">
+                <button type="button" class="primary" (click)="timerRunning() ? pauseTimer() : startTimer()">
+                  {{ timerRunning() ? 'Pausar' : 'Iniciar' }}
+                </button>
+                <button type="button" (click)="resetTimer()">Reiniciar</button>
+                <button type="button" (click)="addTimerSeconds()">+30 s</button>
+              </div>
+              <button type="button" class="notification-toggle" [attr.aria-pressed]="timerNotify()" (click)="toggleTimerNotifications()">
+                {{ timerNotify() ? 'Aviso activado' : 'Activar aviso al terminar' }}
+              </button>
+              <p class="tool-note">No se reproduce sonido sin permiso. El aviso usa vibración o notificación cuando están disponibles.</p>
+            </section>
+          }
+
+          @case ('converter') {
+            <section class="tool-section">
+              <p class="eyebrow">Conversión precisa</p>
+              <h3>Conversor kg / lb</h3>
+              <div class="tool-fields">
+                <label><span>Peso</span><input type="number" inputmode="decimal" [value]="converterValue()" (input)="inputNumber(converterValue, $event)" /></label>
+                <label>
+                  <span>Desde</span>
+                  <select [value]="converterFrom()" (change)="converterFrom.set($any($event.target).value)">
+                    <option value="kg">kg</option><option value="lb">lb</option>
+                  </select>
+                </label>
+              </div>
+              <div class="primary-result" aria-live="polite">
+                <span>Resultado</span>
+                <strong>{{ format(convertedWeight()) }} {{ converterFrom() === 'kg' ? 'lb' : 'kg' }}</strong>
+              </div>
+              <button type="button" class="wide-primary" (click)="applyConvertedValue()">Aplicar al peso actual</button>
+            </section>
+          }
+        }
+      </div>
+    }
+  </aside>
+</div>

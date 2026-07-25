@@ -1,1 +1,60 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --background: #0f1115;
+  --surface: #16191f;
+  --surface-elevated: #1d2129;
+  --surface-muted: #232832;
+  --border: #2b313c;
+  --text-primary: #f1f3f5;
+  --text-secondary: #aab1bc;
+  --accent: #8b72e8;
+  --accent-contrast: #ffffff;
+  --success: #45c996;
+  --warning: #e9b65f;
+  --danger: #ef776d;
+}
+
+:root[data-theme='light'] {
+  --background: #f4f6f5;
+  --surface: #ffffff;
+  --surface-elevated: #f7f9f8;
+  --surface-muted: #edf1ef;
+  --border: #dfe5e2;
+  --text-primary: #172026;
+  --text-secondary: #657077;
+  --accent: #5d46b1;
+  --accent-contrast: #ffffff;
+  --success: #0f8a64;
+  --warning: #c47a20;
+  --danger: #b3483e;
+}
+
+html {
+  min-width: 320px;
+  background: var(--background);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--background);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

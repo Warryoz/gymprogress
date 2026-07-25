@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTrainingProgress, parseTrainingCsv } from './workout-progress';
+import { buildTrainingProgress, estimateOneRepMax, parseTrainingCsv } from './workout-progress';
 
 const SAMPLE = `legs	squat		6x83kg
 	isquio		10x41kg
@@ -118,5 +118,20 @@ describe('parseTrainingCsv', () => {
       '#9',
     ]);
     expect(progress.topMovements[0].latestSessionIndex).toBeGreaterThan(0);
+  });
+});
+
+describe('estimateOneRepMax', () => {
+  it('keeps a true single at the lifted weight', () => {
+    expect(estimateOneRepMax(100, 1)).toBe(100);
+  });
+
+  it('uses the Epley estimate for multi-rep sets', () => {
+    expect(estimateOneRepMax(100, 5)).toBe(116.7);
+  });
+
+  it('rejects invalid inputs', () => {
+    expect(estimateOneRepMax(0, 5)).toBe(0);
+    expect(estimateOneRepMax(100, 0)).toBe(0);
   });
 });

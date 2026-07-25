@@ -45,6 +45,16 @@ export interface ParsedTrainingPlan {
   warnings: string[];
 }
 
+export function formatSuggestedLoad(value: string): string {
+  const load = String(value ?? '').trim();
+
+  if (!load) {
+    return '-';
+  }
+
+  return /^\d+(?:[.,]\d+)?$/.test(load) ? `${load} kg` : load;
+}
+
 export function parseTrainingPlanCsv(
   text: string,
   sourceName = 'training-plan-8-weeks.csv',
