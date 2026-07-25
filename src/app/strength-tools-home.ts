@@ -1,7 +1,14 @@
 import { Component, output } from '@angular/core';
 import { ToolCategorySection } from './tool-category-section';
+import { SecondaryStrengthToolId } from './secondary-strength-tool';
 
-export type AvailableStrengthTool = 'oneRm' | 'rirRpe' | 'plates';
+export type TrackingStrengthDestination = 'progression' | 'compareSessions';
+export type AvailableStrengthTool =
+  | 'oneRm'
+  | 'rirRpe'
+  | 'plates'
+  | SecondaryStrengthToolId
+  | TrackingStrengthDestination;
 
 @Component({
   selector: 'app-strength-tools-home',

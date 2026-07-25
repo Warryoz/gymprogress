@@ -783,6 +783,26 @@
         />
       }
 
+      @if (
+        strengthCalculatorPage() === 'percentages' ||
+        strengthCalculatorPage() === 'equivalences' ||
+        strengthCalculatorPage() === 'notation' ||
+        strengthCalculatorPage() === 'warmup' ||
+        strengthCalculatorPage() === 'timer' ||
+        strengthCalculatorPage() === 'volume'
+      ) {
+        <div class="tool-page-nav">
+          <button type="button" (click)="openStrengthCalculator('home')">
+            <span aria-hidden="true">←</span> Todas las calculadoras
+          </button>
+        </div>
+        <app-secondary-strength-tool
+          [tool]="$any(strengthCalculatorPage())"
+          [initialUnit]="calculatorUnit()"
+          (sendToPlates)="sendRirLoadToPlates($event)"
+        />
+      }
+
       @if (strengthCalculatorPage() === 'plates') {
       <div class="tool-page-nav">
         <button type="button" (click)="openStrengthCalculator('home')">

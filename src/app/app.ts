@@ -3,7 +3,10 @@ import { Component, HostListener, OnDestroy, OnInit, computed, signal } from '@a
 import { AppHeader } from './app-header';
 import { ExerciseCard } from './exercise-card';
 import { TechnicalTooltip } from './technical-tooltip';
-import { StrengthToolsHome } from './strength-tools-home';
+import {
+  StrengthToolsHome,
+  TrackingStrengthDestination,
+} from './strength-tools-home';
 import { CalculatorHeader } from './calculator-header';
 import { CalculatorInstructions } from './calculator-instructions';
 import {
@@ -11,6 +14,10 @@ import {
   RirRpeCalculator,
   StoredOneRepMax,
 } from './rir-rpe-calculator';
+import {
+  SecondaryStrengthTool,
+  SecondaryStrengthToolId,
+} from './secondary-strength-tool';
 import { ThemePreference } from './theme-toggle';
 import type { QuickLastSet } from './quick-tools-drawer';
 import { parseTrainingNotation } from './quick-strength-tools';
@@ -139,7 +146,12 @@ interface StrengthPrescription {
 
 type StrengthTab = 'calculate' | 'compare' | 'records' | 'history';
 type HistoryMetric = 'maxWeight' | 'oneRepMax' | 'reps' | 'volume';
-type StrengthCalculatorPage = 'home' | 'oneRm' | 'rirRpe' | 'plates';
+type StrengthCalculatorPage =
+  | 'home'
+  | 'oneRm'
+  | 'rirRpe'
+  | 'plates'
+  | SecondaryStrengthToolId;
 type CalculatorDataSource = 'manual' | 'history';
 
 const DEFAULT_PLATE_INVENTORIES: Record<WeightUnit, PlateInventoryItem[]> = {
@@ -175,6 +187,7 @@ export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator';
     CalculatorHeader,
     CalculatorInstructions,
     RirRpeCalculator,
+    SecondaryStrengthTool,
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -1291,7 +1304,13 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  public openStrengthCalculator(page: StrengthCalculatorPage): void {
+  public openStrengthCalculator(
+    page: StrengthCalculatorPage | TrackingStrengthDestination,
+  ): void {
+    if (page === 'progression' || page === 'compareSessions') {
+      this.strengthTab.set('compare');
+      return;
+    }
     this.strengthCalculatorPage.set(page);
     this.appliedLoadMessage.set(null);
     if (page === 'oneRm') {

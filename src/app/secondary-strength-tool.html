@@ -1,0 +1,144 @@
+<article class="tool-shell">
+  <app-calculator-header
+    [category]="metadata().category"
+    [title]="metadata().title"
+    [description]="metadata().description"
+    [status]="attempted() && validation() ? 'Revisar datos' : calculated() ? 'Resultado listo' : 'Sin calcular'"
+    [statusTone]="attempted() && validation() ? 'error' : calculated() ? 'success' : 'neutral'"
+  />
+
+  <app-calculator-instructions>
+    @switch (tool()) {
+      @case ('percentages') {
+        <p>Introduce tu 1RM, el porcentaje deseado y el incremento que permiten tus discos.</p>
+      }
+      @case ('equivalences') {
+        <p>Usa una serie exigente y elige cuántas repeticiones quieres realizar con un esfuerzo equivalente.</p>
+      }
+      @case ('notation') {
+        <p>Ejemplo: <strong>4x8 @ 70kg RIR2</strong>. El símbolo @ se lee como “con” o “a”.</p>
+      }
+      @case ('warmup') {
+        <p>El peso de trabajo es la carga de tus series principales, no tu 1RM.</p>
+      }
+      @case ('timer') {
+        <p>Introduce el descanso en segundos. Puedes pausar o reiniciar cuando lo necesites.</p>
+      }
+      @case ('volume') {
+        <p>Añade las series realizadas. El volumen se calcula como peso × repeticiones en cada serie.</p>
+      }
+    }
+  </app-calculator-instructions>
+
+  <div class="step-title"><span>Paso 1</span><strong>Introduce tus datos</strong></div>
+
+  @switch (tool()) {
+    @case ('percentages') {
+      <div class="field-grid">
+        <label>
+          <span>1RM</span>
+          <div class="input-unit"><input type="number" min="0" placeholder="Ej. 120" [value]="oneRepMax() ?? ''" (input)="inputNumber(oneRepMax, $event)" /><strong>{{ unit() }}</strong></div>
+        </label>
+        <label>
+          <span class="label-help">Porcentaje del 1RM <app-technical-tooltip term="Porcentaje del 1RM" description="Proporción de tu máximo que deseas utilizar." [iconOnly]="true" /></span>
+          <div class="input-unit"><input type="number" min="1" max="100" aria-label="Porcentaje del 1RM" placeholder="Ej. 80" [value]="percentage() ?? ''" (input)="inputNumber(percentage, $event)" /><strong>%</strong></div>
+        </label>
+        <label>
+          <span>Incremento disponible</span>
+          <div class="input-unit"><input type="number" min="0.1" step="0.5" [value]="increment()" (input)="inputIncrement($event)" /><strong>{{ unit() }}</strong></div>
+        </label>
+        <label><span>Unidad</span><select [value]="unit()" (change)="setUnit($any($event.target).value)"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+      </div>
+    }
+    @case ('equivalences') {
+      <div class="field-grid">
+        <label><span>Peso actual</span><div class="input-unit"><input type="number" min="0" placeholder="Ej. 80" [value]="sourceWeight() ?? ''" (input)="inputNumber(sourceWeight, $event)" /><strong>{{ unit() }}</strong></div></label>
+        <label><span>Repeticiones actuales</span><input type="number" min="1" max="20" placeholder="Ej. 8" [value]="sourceReps() ?? ''" (input)="inputNumber(sourceReps, $event)" /></label>
+        <label><span class="label-help">RIR actual <app-technical-tooltip term="RIR" description="Repeticiones que todavía podrías realizar al terminar la serie." [iconOnly]="true" /></span><input type="number" min="0" max="5" step="0.5" aria-label="RIR actual" placeholder="0–5" [value]="sourceRir() ?? ''" (input)="inputNumber(sourceRir, $event)" /></label>
+        <label><span>Repeticiones objetivo</span><input type="number" min="1" max="20" placeholder="Ej. 5" [value]="targetReps() ?? ''" (input)="inputNumber(targetReps, $event)" /></label>
+        <label><span>Incremento</span><div class="input-unit"><input type="number" min="0.1" step="0.5" [value]="increment()" (input)="inputIncrement($event)" /><strong>{{ unit() }}</strong></div></label>
+        <label><span>Unidad</span><select [value]="unit()" (change)="setUnit($any($event.target).value)"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+      </div>
+    }
+    @case ('notation') {
+      <label class="full-field">
+        <span class="label-help">Notación de entrenamiento <app-technical-tooltip term="Notación @" description="Resume series, repeticiones, carga y esfuerzo en una sola línea." [iconOnly]="true" /></span>
+        <input type="text" aria-label="Notación de entrenamiento" placeholder="Ej. 4x8 @ 70kg RIR2" [value]="notationRaw()" (input)="inputNotation($event)" />
+      </label>
+    }
+    @case ('warmup') {
+      <div class="field-grid">
+        <label><span>Peso de trabajo</span><div class="input-unit"><input type="number" min="0" placeholder="Ej. 100" [value]="workingWeight() ?? ''" (input)="inputNumber(workingWeight, $event)" /><strong>{{ unit() }}</strong></div></label>
+        <label><span>Peso de la barra</span><div class="input-unit"><input type="number" min="0" placeholder="Ej. 20" [value]="barWeight() ?? ''" (input)="inputNumber(barWeight, $event)" /><strong>{{ unit() }}</strong></div></label>
+        <label><span>Nivel</span><select [value]="warmupLevel()" (change)="warmupLevel.set($any($event.target).value); resetCalculation()"><option value="short">Corto</option><option value="normal">Normal</option><option value="extensive">Extenso</option></select></label>
+        <label><span>Unidad</span><select [value]="unit()" (change)="setUnit($any($event.target).value)"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+      </div>
+      <label class="check-field"><input type="checkbox" [checked]="warmupAccessory()" (change)="warmupAccessory.set($any($event.target).checked); resetCalculation()" /><span>Es un ejercicio accesorio</span></label>
+    }
+    @case ('timer') {
+      <label class="full-field">
+        <span>Duración del descanso</span>
+        <div class="input-unit"><input type="number" min="1" inputmode="numeric" placeholder="Ej. 90" [value]="timerSeconds() ?? ''" (input)="inputNumber(timerSeconds, $event)" /><strong>s</strong></div>
+      </label>
+    }
+    @case ('volume') {
+      <div class="volume-editor">
+        @for (set of volumeSets(); track set.id; let index = $index) {
+          <div class="volume-row">
+            <strong>Serie {{ index + 1 }}</strong>
+            <label><span>Peso</span><div class="input-unit"><input type="number" min="0" placeholder="Ej. 80" [value]="set.weight ?? ''" (input)="updateVolumeSet(set.id, 'weight', $event)" /><strong>{{ unit() }}</strong></div></label>
+            <label><span>Repeticiones</span><input type="number" min="1" max="100" placeholder="Ej. 8" [value]="set.reps ?? ''" (input)="updateVolumeSet(set.id, 'reps', $event)" /></label>
+            <button type="button" class="remove-set" [disabled]="volumeSets().length === 1" [attr.aria-label]="'Eliminar serie ' + (index + 1)" (click)="removeVolumeSet(set.id)">×</button>
+          </div>
+        }
+        <button type="button" class="secondary add-set" (click)="addVolumeSet()">Añadir serie</button>
+      </div>
+      <label class="unit-only"><span>Unidad</span><select [value]="unit()" (change)="setUnit($any($event.target).value)"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+    }
+  }
+
+  @if (tool() !== 'timer') {
+    <div class="action-row"><span><small>Paso 2</small> Calcula el resultado</span><button type="button" class="primary" (click)="calculate()">Calcular</button></div>
+  } @else {
+    <div class="timer-panel">
+      <strong aria-live="polite">{{ timerLabel() }}</strong>
+      <div><button type="button" class="primary" (click)="timerRunning() ? pauseTimer() : startTimer()">{{ timerRunning() ? 'Pausar' : 'Iniciar' }}</button><button type="button" class="secondary" (click)="resetTimer()">Reiniciar</button></div>
+    </div>
+  }
+
+  @if (attempted() && validation()) {
+    <p class="error" role="alert">{{ validation() }}</p>
+  } @else if (!calculated()) {
+    <div class="empty"><strong>Aún no hay resultado</strong><span>Introduce tus datos para comenzar.</span></div>
+  } @else {
+    @switch (tool()) {
+      @case ('percentages') {
+        <section class="result approximate">
+          <span>Peso utilizable</span><h3>{{ format(percentageResult().usable) }} {{ unit() }}</h3>
+          <div class="result-grid"><div><span>Peso calculado</span><strong>{{ format(percentageResult().calculated) }} {{ unit() }}</strong></div><div><span>Peso utilizable</span><strong>{{ format(percentageResult().usable) }} {{ unit() }}</strong></div></div>
+          <p>La carga utilizable fue redondeada al incremento disponible.</p>
+          <button type="button" class="primary next" (click)="sendWeight(percentageResult().usable)">Enviar a discos</button>
+        </section>
+      }
+      @case ('equivalences') {
+        <section class="result approximate">
+          <span>Carga equivalente</span><h3>{{ format(equivalentResult()?.weight ?? 0) }} {{ unit() }} × {{ equivalentResult()?.reps }} reps</h3>
+          <p>Mantiene una estimación de esfuerzo equivalente; puede variar según el ejercicio.</p>
+          <button type="button" class="primary next" (click)="sendWeight(equivalentResult()?.weight ?? 0)">Enviar a discos</button>
+        </section>
+      }
+      @case ('notation') {
+        <section class="result success"><span>Notación interpretada</span><h3>{{ parsedNotation().normalized }}</h3><div class="result-grid"><div><span>Series</span><strong>{{ parsedNotation().sets }}</strong></div><div><span>Repeticiones</span><strong>{{ parsedNotation().repsOrTime }}</strong></div><div><span>Carga</span><strong>{{ parsedNotation().load ?? '—' }} {{ parsedNotation().unit ?? '' }}</strong></div><div><span>Esfuerzo</span><strong>{{ parsedNotation().effortScale?.toUpperCase() ?? '—' }} {{ parsedNotation().effort ?? '' }}</strong></div></div></section>
+      }
+      @case ('warmup') {
+        <section class="result success"><span>Series de aproximación</span><div class="warmup-list">@for (set of warmupSets(); track set.id) {<div><span>{{ set.label }}</span><strong>{{ format(set.weight) }} {{ set.unit }} × {{ set.reps }}</strong></div>}</div><p>Estas series preparan el movimiento y no sustituyen tus series de trabajo.</p></section>
+      }
+      @case ('volume') {
+        <section class="result success">
+          <span>Volumen total</span><h3>{{ format(volumeResult().totalVolume) }} {{ unit() }}</h3>
+          <div class="result-grid"><div><span>Series</span><strong>{{ volumeResult().setCount }}</strong></div><div><span>Repeticiones totales</span><strong>{{ volumeResult().totalReps }}</strong></div><div><span>Peso medio</span><strong>{{ format(volumeResult().averageWeight) }} {{ unit() }}</strong></div><div><span>Peso máximo</span><strong>{{ format(volumeResult().maxWeight) }} {{ unit() }}</strong></div></div>
+        </section>
+      }
+    }
+  }
+</article>

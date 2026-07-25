@@ -50,11 +50,11 @@
     <button type="button" class="tool-link" (click)="openTool.emit('oneRm')">
       <strong>1RM estimado</strong><small>Peso y repeticiones</small><i aria-hidden="true">›</i>
     </button>
-    <button type="button" class="tool-link" disabled>
-      <strong>Cargas por porcentaje</strong><small>Próximamente</small>
+    <button type="button" class="tool-link" (click)="openTool.emit('percentages')">
+      <strong>Cargas por porcentaje</strong><small>Desde un 1RM manual</small><i aria-hidden="true">›</i>
     </button>
-    <button type="button" class="tool-link" disabled>
-      <strong>Equivalencias</strong><small>Próximamente</small>
+    <button type="button" class="tool-link" (click)="openTool.emit('equivalences')">
+      <strong>Equivalencias</strong><small>Cambiar repeticiones y carga</small><i aria-hidden="true">›</i>
     </button>
   </app-tool-category>
 
@@ -66,8 +66,8 @@
     <button type="button" class="tool-link" (click)="openTool.emit('rirRpe')">
       <strong>RIR y RPE</strong><small>Interpretar o calcular carga</small><i aria-hidden="true">›</i>
     </button>
-    <button type="button" class="tool-link" disabled>
-      <strong>Notación @</strong><small>Próximamente</small>
+    <button type="button" class="tool-link" (click)="openTool.emit('notation')">
+      <strong>Notación @</strong><small>Interpretar una prescripción</small><i aria-hidden="true">›</i>
     </button>
   </app-tool-category>
 
@@ -79,11 +79,27 @@
     <button type="button" class="tool-link" (click)="openTool.emit('plates')">
       <strong>Calculadora de discos</strong><small>Montaje por cada lado</small><i aria-hidden="true">›</i>
     </button>
-    <button type="button" class="tool-link" disabled>
-      <strong>Calentamiento</strong><small>Próximamente</small>
+    <button type="button" class="tool-link" (click)="openTool.emit('warmup')">
+      <strong>Calentamiento</strong><small>Series de aproximación</small><i aria-hidden="true">›</i>
     </button>
-    <button type="button" class="tool-link" disabled>
-      <strong>Temporizador</strong><small>Próximamente</small>
+    <button type="button" class="tool-link" (click)="openTool.emit('timer')">
+      <strong>Temporizador</strong><small>Descanso entre series</small><i aria-hidden="true">›</i>
+    </button>
+  </app-tool-category>
+
+  <app-tool-category
+    title="Seguimiento"
+    description="Analiza una sesión o tu progresión"
+    detail="Volumen, recomendaciones y comparación."
+  >
+    <button type="button" class="tool-link" (click)="openTool.emit('volume')">
+      <strong>Volumen</strong><small>Series × repeticiones × peso</small><i aria-hidden="true">›</i>
+    </button>
+    <button type="button" class="tool-link" (click)="openTool.emit('progression')">
+      <strong>Progresión</strong><small>Recomendación desde sesiones</small><i aria-hidden="true">›</i>
+    </button>
+    <button type="button" class="tool-link" (click)="openTool.emit('compareSessions')">
+      <strong>Comparar sesiones</strong><small>Actual frente a referencia</small><i aria-hidden="true">›</i>
     </button>
   </app-tool-category>
 </section>
