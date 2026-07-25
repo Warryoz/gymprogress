@@ -11,7 +11,8 @@ describe('App', () => {
         const url = String(input);
         const text = url.includes('training-plan')
           ? `semana,dia,enfoque,fase_semana,bloque,ejercicio,series,reps_o_tiempo,,carga_sugerida,rpe_rir,tempo,descanso,objetivo,regla_tendon_24h,progresion,notas
-1,D1 Push,Pecho,Base,Principal,Incline bench press,4,8,,62.5,RIR 3,3-1-2,2 min,Hipertrofia,Regla 24h,Sube carga,No fallo`
+1,D1 Push,Pecho,Base,Principal,Incline bench press,4,8,,62.5,RIR 3,3-1-2,2 min,Hipertrofia,Regla 24h,Sube carga,No fallo
+1,D1 Push,Pecho,Base,Accesorio,Peck deck,3,12,,55,RIR 3,2-1-2,90 s,Hipertrofia,Regla 24h,Sube reps,Control`
           : 'legs\tsquat\t\t7x100kg\n\tisquio\t\t10x50kg';
 
         return Promise.resolve({
@@ -164,5 +165,50 @@ describe('App', () => {
     app.startTraining();
     expect(app.trainingInProgress()).toBe(false);
     expect(app.trainingCompleted()).toBe(true);
+  });
+
+  it('starts a prescription-aware rest timer after completing an exercise', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await app.loadTrainingPlan();
+
+    app.startTraining();
+    const firstRow = app.currentWorkoutDay()?.rows[0];
+    expect(firstRow).toBeTruthy();
+
+    app.setExerciseCompleted(firstRow!.sourceRow, true);
+
+    expect(app.restTimerDuration()).toBe(120);
+    expect(app.restTimerRemaining()).toBeGreaterThanOrEqual(119);
+    expect(app.nextWorkoutExercise()).toBe('Peck deck');
+
+    const stored = JSON.parse(
+      localStorage.getItem('gym-progress-workout-session') ?? '{}',
+    );
+    expect(stored).toMatchObject({
+      inProgress: true,
+      completedRows: [firstRow!.sourceRow],
+      restTimerDuration: 120,
+    });
+  });
+
+  it('restores an active workout and its timer after a refresh', async () => {
+    const firstFixture = TestBed.createComponent(App);
+    const firstApp = firstFixture.componentInstance;
+    await firstApp.loadTrainingPlan();
+    firstApp.startTraining();
+    const firstRow = firstApp.currentWorkoutDay()!.rows[0];
+    firstApp.setExerciseCompleted(firstRow.sourceRow, true);
+    firstFixture.destroy();
+
+    const restoredFixture = TestBed.createComponent(App);
+    const restoredApp = restoredFixture.componentInstance;
+    await restoredApp.loadTrainingPlan();
+
+    expect(restoredApp.trainingInProgress()).toBe(true);
+    expect(restoredApp.planMode()).toBe('workout');
+    expect(restoredApp.completedExerciseRows().has(firstRow.sourceRow)).toBe(true);
+    expect(restoredApp.restTimerDuration()).toBe(120);
+    expect(restoredApp.restTimerRemaining()).toBeGreaterThan(0);
   });
 });

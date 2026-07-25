@@ -80,6 +80,19 @@
         <span>Duración del descanso</span>
         <div class="input-unit"><input type="number" min="1" inputmode="numeric" placeholder="Ej. 90" [value]="timerSeconds() ?? ''" (input)="inputNumber(timerSeconds, $event)" /><strong>s</strong></div>
       </label>
+      <div class="timer-presets" aria-label="Descansos habituales">
+        <span>Elegir rápido</span>
+        @for (seconds of [60, 90, 120, 180]; track seconds) {
+          <button
+            type="button"
+            [class.active]="timerSeconds() === seconds"
+            [attr.aria-pressed]="timerSeconds() === seconds"
+            (click)="setTimerPreset(seconds)"
+          >
+            {{ seconds === 90 ? '1:30 min' : (seconds / 60) + ' min' }}
+          </button>
+        }
+      </div>
     }
     @case ('volume') {
       <div class="volume-editor">
@@ -98,7 +111,7 @@
   }
 
   @if (tool() !== 'timer') {
-    <div class="action-row"><span><small>Paso 2</small> Calcula el resultado</span><button type="button" class="primary" (click)="calculate()">Calcular</button></div>
+    <div class="action-row"><span><small>Paso 2</small> Obtén una recomendación clara</span><button type="button" class="primary" (click)="calculate()">{{ actionLabel() }}</button></div>
   } @else {
     <div class="timer-panel">
       <strong aria-live="polite">{{ timerLabel() }}</strong>

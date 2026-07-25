@@ -8,7 +8,12 @@
   (train)="startTraining()"
 />
 
-<main id="main-content" class="app-shell" tabindex="-1">
+<main
+  id="main-content"
+  class="app-shell"
+  [class.workout-focus-mode]="planMode() === 'workout'"
+  tabindex="-1"
+>
 
   @if (activeView() === 'plan') {
     @if (planError(); as message) {
@@ -57,9 +62,30 @@
             {{ workoutActionLabel() }}
           </button>
         </section>
+
+        @if (trainingInProgress() && planMode() === 'workout') {
+          <app-workout-session-bar
+            [workoutName]="workout.name"
+            [nextExercise]="nextWorkoutExercise()"
+            [completed]="currentWorkoutProgress().completed"
+            [total]="currentWorkoutProgress().total"
+            [elapsedSeconds]="workoutElapsedSeconds()"
+            [restRemaining]="restTimerRemaining()"
+            [restDuration]="restTimerDuration()"
+            [restPaused]="restTimerPaused()"
+            [restFinished]="restTimerFinished()"
+            [allCompleted]="currentWorkoutProgress().allCompleted"
+            (exitFocus)="leaveWorkoutFocus()"
+            (primaryAction)="startTraining()"
+            (toggleRest)="toggleRestTimer()"
+            (addRest)="addRestTime()"
+            (dismissRest)="dismissRestTimer()"
+          />
+        }
       }
 
       @if (currentPlanWeek(); as week) {
+        @if (planMode() !== 'workout') {
         <section class="compact-week-selector" aria-label="Semana del plan">
           <button
             type="button"
@@ -92,9 +118,10 @@
             Ver todas las semanas
           </button>
         </section>
+        }
       }
 
-      @if (weekOverviewOpen()) {
+      @if (weekOverviewOpen() && planMode() !== 'workout') {
         <div class="drawer-backdrop" (click)="toggleWeekOverview()"></div>
         <section
           class="week-drawer"
@@ -142,6 +169,7 @@
       }
 
       <section class="planner-layout">
+        @if (planMode() !== 'workout') {
         <aside class="day-rail" aria-label="Dias de la semana seleccionada">
           @for (day of planDayOptions(); track day.key) {
             <div class="day-option" [class.active]="selectedPlanDay() === day.name">
@@ -164,6 +192,7 @@
             </div>
           }
         </aside>
+        }
 
         <section class="plan-panel">
           @if (selectedPlanHeading(); as heading) {
@@ -450,33 +479,22 @@
   }
 
   @if (activeView() === 'calculator') {
-    <section class="calculator-heading">
+    <section id="strength-workspace" class="calculator-heading strength-workspace-heading">
       <div>
-        <p class="eyebrow">Fuerza</p>
-        <h2>Herramientas de fuerza</h2>
-        <p>Calcula con tus propios datos y conecta tu historial solo cuando lo necesites.</p>
-      </div>
-
-      @if (strengthTab() === 'calculate' && strengthCalculatorPage() !== 'home') {
-        <div class="unit-toggle" aria-label="Unidad de peso">
-        <button
-          type="button"
-          [class.active]="calculatorUnit() === 'kg'"
-          [attr.aria-pressed]="calculatorUnit() === 'kg'"
-          (click)="updateCalculatorUnit('kg')"
-        >
-          kg
-        </button>
-        <button
-          type="button"
-          [class.active]="calculatorUnit() === 'lb'"
-          [attr.aria-pressed]="calculatorUnit() === 'lb'"
-          (click)="updateCalculatorUnit('lb')"
-        >
-          lb
-        </button>
+        <p class="eyebrow">Centro de fuerza</p>
+        <h2>Decisiones claras para cada serie</h2>
+        <p>Calcula, prepara y analiza tu entrenamiento sin perder el contexto.</p>
+        <div class="strength-trust-row" aria-label="Características">
+          <span>11 herramientas</span>
+          <span>kg y lb</span>
+          <span>Historial opcional</span>
         </div>
-      }
+      </div>
+      <div class="strength-hero-mark" aria-hidden="true">
+        <span>GP</span>
+        <strong>Fuerza</strong>
+        <small>Entrena con intención</small>
+      </div>
     </section>
 
     <nav class="strength-tabs" role="tablist" aria-label="Herramientas de fuerza">
@@ -487,7 +505,8 @@
         [attr.aria-selected]="strengthTab() === 'calculate'"
         (click)="setStrengthTab('calculate')"
       >
-        Calculadoras
+        <span aria-hidden="true">∑</span>
+        <span><strong>Calcular</strong><small>1RM, cargas y preparación</small></span>
       </button>
       <button
         type="button"
@@ -496,7 +515,8 @@
         [attr.aria-selected]="strengthTab() === 'compare'"
         (click)="setStrengthTab('compare')"
       >
-        Comparar
+        <span aria-hidden="true">⇄</span>
+        <span><strong>Comparar</strong><small>Dos sesiones frente a frente</small></span>
       </button>
       <button
         type="button"
@@ -505,7 +525,8 @@
         [attr.aria-selected]="strengthTab() === 'records'"
         (click)="setStrengthTab('records')"
       >
-        Récords
+        <span aria-hidden="true">★</span>
+        <span><strong>Mis récords</strong><small>Tus mejores marcas</small></span>
       </button>
       <button
         type="button"
@@ -514,9 +535,46 @@
         [attr.aria-selected]="strengthTab() === 'history'"
         (click)="setStrengthTab('history')"
       >
-        Historial
+        <span aria-hidden="true">↗</span>
+        <span><strong>Evolución</strong><small>Tendencias por ejercicio</small></span>
       </button>
     </nav>
+
+    @if (strengthTab() === 'calculate' && strengthCalculatorPage() !== 'home') {
+      <nav
+        id="strength-tool-context"
+        class="strength-tool-context"
+        aria-label="Navegación de calculadora"
+      >
+        <button type="button" class="tool-back" (click)="openStrengthCalculator('home')">
+          <span aria-hidden="true">←</span>
+          <span>
+            <small>Calculadoras</small>
+            <strong>{{ strengthCalculatorTitle() }}</strong>
+          </span>
+        </button>
+        @if (strengthCalculatorPage() === 'oneRm' || strengthCalculatorPage() === 'plates') {
+          <div class="unit-toggle" aria-label="Unidad de peso">
+            <button
+              type="button"
+              [class.active]="calculatorUnit() === 'kg'"
+              [attr.aria-pressed]="calculatorUnit() === 'kg'"
+              (click)="updateCalculatorUnit('kg')"
+            >
+              kg
+            </button>
+            <button
+              type="button"
+              [class.active]="calculatorUnit() === 'lb'"
+              [attr.aria-pressed]="calculatorUnit() === 'lb'"
+              (click)="updateCalculatorUnit('lb')"
+            >
+              lb
+            </button>
+          </div>
+        }
+      </nav>
+    }
 
     @if (strengthTab() === 'calculate') {
       @if (strengthCalculatorPage() === 'home') {
@@ -524,11 +582,6 @@
       }
 
       @if (strengthCalculatorPage() === 'oneRm') {
-      <div class="tool-page-nav">
-        <button type="button" (click)="openStrengthCalculator('home')">
-          <span aria-hidden="true">←</span> Todas las calculadoras
-        </button>
-      </div>
       <section class="calculator-grid single-tool">
         <article class="panel rm-card">
           <app-calculator-header
@@ -770,11 +823,6 @@
       }
 
       @if (strengthCalculatorPage() === 'rirRpe') {
-        <div class="tool-page-nav">
-          <button type="button" (click)="openStrengthCalculator('home')">
-            <span aria-hidden="true">←</span> Todas las calculadoras
-          </button>
-        </div>
         <app-rir-rpe-calculator
           [historySet]="rirHistorySet()"
           [storedOneRepMax]="storedOneRepMax()"
@@ -791,11 +839,6 @@
         strengthCalculatorPage() === 'timer' ||
         strengthCalculatorPage() === 'volume'
       ) {
-        <div class="tool-page-nav">
-          <button type="button" (click)="openStrengthCalculator('home')">
-            <span aria-hidden="true">←</span> Todas las calculadoras
-          </button>
-        </div>
         <app-secondary-strength-tool
           [tool]="$any(strengthCalculatorPage())"
           [initialUnit]="calculatorUnit()"
@@ -804,11 +847,6 @@
       }
 
       @if (strengthCalculatorPage() === 'plates') {
-      <div class="tool-page-nav">
-        <button type="button" (click)="openStrengthCalculator('home')">
-          <span aria-hidden="true">←</span> Todas las calculadoras
-        </button>
-      </div>
       <section id="plate-calculator" class="panel plate-panel">
         <app-calculator-header
           category="Preparación · Cálculo manual"
@@ -983,7 +1021,7 @@
                         }
                       </div>
                       <i class="bar-shaft" aria-hidden="true"></i>
-                      <div class="plate-side right" aria-hidden="true">
+                      <div class="plate-side" aria-hidden="true">
                         @for (plate of exact.perSide; track plate.weight) {
                           @for (copy of plateCopies(plate.count); track copy) {
                             <i class="plate-disc">{{ plate.weight }}</i>
@@ -1043,10 +1081,18 @@
       <section class="panel strength-section">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">Sesiones seleccionadas</p>
-            <h2>Comparador de sesiones</h2>
+            <p class="eyebrow">Comparación guiada</p>
+            <h2>¿Qué cambió entre tus sesiones?</h2>
+            <p class="strength-section-description">
+              Elige un ejercicio, una referencia y la sesión que quieres evaluar.
+            </p>
           </div>
         </div>
+        <div class="comparison-setup">
+          <div class="setup-step">
+            <span>1</span>
+            <div><strong>Selecciona el movimiento</strong><small>Solo verás sesiones del mismo ejercicio.</small></div>
+          </div>
         <label class="field-label compact-select">
           <span>Ejercicio</span>
           <select
@@ -1066,9 +1112,13 @@
         </label>
 
         @if (selectedStrengthSessions().length >= 2) {
+          <div class="setup-step second">
+            <span>2</span>
+            <div><strong>Elige las dos sesiones</strong><small>La referencia se compara con la sesión a evaluar.</small></div>
+          </div>
           <div class="comparison-session-selectors">
             <label>
-              <span>Sesión anterior</span>
+              <span>Referencia</span>
               <select
                 class="exercise-select"
                 [value]="comparisonReferenceSession()?.id ?? ''"
@@ -1085,7 +1135,7 @@
               </select>
             </label>
             <label>
-              <span>Sesión actual</span>
+              <span>Sesión a evaluar</span>
               <select
                 class="exercise-select"
                 [value]="comparisonCurrentSession()?.id ?? ''"
@@ -1103,8 +1153,10 @@
             </label>
           </div>
         }
+        </div>
 
         @if (sessionComparison(); as comparison) {
+          <div class="result-section-label"><span>3</span><strong>Lee el resultado</strong></div>
           <article class="comparison-summary" aria-live="polite">
             <span>Conclusión</span>
             <h3>{{ comparisonHeadline(comparison) }}</h3>
@@ -1171,8 +1223,11 @@
       <section class="panel strength-section">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">Marcas detectadas</p>
-            <h2>Récords personales</h2>
+            <p class="eyebrow">Tus mejores marcas</p>
+            <h2>Récords personales detectados</h2>
+            <p class="strength-section-description">
+              Cambia de ejercicio para revisar tus mejores cargas, repeticiones, 1RM y volumen.
+            </p>
           </div>
           <app-technical-tooltip
             term="PR"
@@ -1256,8 +1311,11 @@
       <section class="panel strength-section">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">Historial existente</p>
-            <h2>Evolución del movimiento</h2>
+            <p class="eyebrow">Tendencia por ejercicio</p>
+            <h2>Cómo está evolucionando tu fuerza</h2>
+            <p class="strength-section-description">
+              Elige una métrica para ver su cambio sesión a sesión.
+            </p>
           </div>
           <button type="button" class="text-button" (click)="setActiveView('progress')">
             Ver progreso completo

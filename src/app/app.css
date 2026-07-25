@@ -461,6 +461,18 @@ textarea:focus,
   gap: 14px;
 }
 
+.workout-focus-mode .planner-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workout-focus-mode .current-workout-card {
+  padding-block: var(--space-4);
+}
+
+.workout-focus-mode .plan-panel {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+
 .day-rail {
   position: sticky;
   top: var(--space-4);
@@ -1387,7 +1399,7 @@ textarea {
   justify-content: space-between;
   gap: 18px;
   margin-bottom: 8px;
-  padding: 10px 2px 6px;
+  padding: 1rem;
 }
 
 .calculator-heading p:last-child {
@@ -2065,42 +2077,6 @@ textarea {
   }
 }
 
-/* Strength workspace */
-.strength-tabs {
-  display: flex;
-  gap: 4px;
-  margin: 0 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 4px;
-  overflow-x: auto;
-  background: var(--surface);
-  scrollbar-width: none;
-}
-
-.strength-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.strength-tabs button {
-  min-width: 108px;
-  min-height: 44px;
-  flex: 1 0 auto;
-  border: 0;
-  border-radius: 7px;
-  padding: 9px 16px;
-  color: var(--text-secondary);
-  background: transparent;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.strength-tabs button.active {
-  color: var(--accent-contrast);
-  background: var(--accent);
-}
-
 .quick-tools-launch {
   display: flex;
   align-items: center;
@@ -2363,7 +2339,7 @@ textarea {
   grid-template-columns: minmax(82px, 1fr) minmax(72px, 0.75fr) minmax(82px, 1fr);
   align-items: center;
   justify-content: center;
-  gap: 0;
+  gap: 0.5rem;
   min-height: 54px;
   margin-top: 14px;
   overflow: visible;
@@ -2396,7 +2372,7 @@ textarea {
 
 .plate-disc {
   display: grid;
-  width: 30px;
+  width: 35px;
   height: 52px;
   margin-inline: -1px;
   place-items: center;
@@ -2722,10 +2698,6 @@ textarea {
 }
 
 @media (max-width: 720px) {
-  .strength-tabs {
-    margin-inline: -4px;
-  }
-
   .strength-options,
   .plate-options,
   .comparison-metrics,
@@ -3100,7 +3072,6 @@ textarea {
   }
 
   .plate-disc {
-    width: 24px;
     min-width: 20px;
     font-size: 0.58rem;
   }

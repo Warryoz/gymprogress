@@ -1,105 +1,82 @@
 <section class="strength-tools-home" aria-labelledby="tools-home-title">
   <div class="tools-home-intro">
-    <p class="eyebrow">Calculadoras</p>
-    <h2 id="tools-home-title">¿Qué quieres calcular?</h2>
-    <p>Selecciona una herramienta según lo que quieras resolver.</p>
+    <div>
+      <p class="eyebrow">Calculadoras y asistentes</p>
+      <h2 id="tools-home-title">¿Qué necesitas resolver?</h2>
+      <p>Elige un objetivo o busca una herramienta por su nombre.</p>
+    </div>
+    <span class="tool-count">{{ tools.length }} herramientas</span>
   </div>
 
-  <section class="featured-tools" aria-labelledby="featured-tools-title">
-    <div class="tool-category-heading">
-      <div>
-        <span>Más utilizadas</span>
-        <h3 id="featured-tools-title">Empieza por aquí</h3>
-      </div>
-      <small>Tres calculadoras listas para usar manualmente.</small>
+  <div class="goal-picker" aria-label="Filtrar herramientas por objetivo">
+    @for (goal of goals; track goal.id) {
+      <button
+        type="button"
+        [class.active]="selectedGoal() === goal.id"
+        [attr.aria-pressed]="selectedGoal() === goal.id"
+        (click)="selectGoal(goal.id)"
+      >
+        <span class="goal-icon" aria-hidden="true">{{ goal.icon }}</span>
+        <span>
+          <strong>{{ goal.label }}</strong>
+          <small>{{ goal.description }}</small>
+        </span>
+      </button>
+    }
+  </div>
+
+  <div class="tool-finder">
+    <label>
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <input
+        type="search"
+        placeholder="Buscar: 1RM, discos, RIR, volumen…"
+        aria-label="Buscar herramientas de fuerza"
+        [value]="searchQuery()"
+        (input)="updateSearch($event)"
+      />
+      @if (searchQuery()) {
+        <button type="button" aria-label="Limpiar búsqueda" (click)="searchQuery.set('')">×</button>
+      }
+    </label>
+    <span aria-live="polite">
+      {{ filteredTools().length }}
+      {{ filteredTools().length === 1 ? 'resultado' : 'resultados' }}
+    </span>
+  </div>
+
+  @if (filteredTools().length) {
+    <div class="tool-card-grid">
+      @for (tool of filteredTools(); track tool.id) {
+        <button
+          type="button"
+          class="tool-card"
+          [class.recommended]="tool.recommended"
+          (click)="openTool.emit(tool.id)"
+        >
+          <span class="tool-card-icon" aria-hidden="true">{{ tool.icon }}</span>
+          <span class="tool-card-copy">
+            <span class="tool-category">
+              {{ tool.category }}
+              @if (tool.recommended) {
+                <em>Recomendada</em>
+              }
+            </span>
+            <strong>{{ tool.title }}</strong>
+            <small>{{ tool.description }}</small>
+          </span>
+          <span class="open-tool">
+            Abrir <i aria-hidden="true">→</i>
+          </span>
+        </button>
+      }
     </div>
-    <div class="tool-card-grid featured">
-      <button type="button" class="tool-card primary" (click)="openTool.emit('oneRm')">
-        <span class="tool-card-icon" aria-hidden="true">1</span>
-        <span>
-          <strong>1RM estimado</strong>
-          <small>Obtén un máximo aproximado desde una serie exigente.</small>
-        </span>
-        <i aria-hidden="true">›</i>
-      </button>
-      <button type="button" class="tool-card" (click)="openTool.emit('rirRpe')">
-        <span class="tool-card-icon" aria-hidden="true">R</span>
-        <span>
-          <strong>RIR y RPE</strong>
-          <small>Interpreta qué tan cerca estuviste del fallo.</small>
-        </span>
-        <i aria-hidden="true">›</i>
-      </button>
-      <button type="button" class="tool-card" (click)="openTool.emit('plates')">
-        <span class="tool-card-icon" aria-hidden="true">◎</span>
-        <span>
-          <strong>Calculadora de discos</strong>
-          <small>Prepara una barra con el peso que necesitas.</small>
-        </span>
-        <i aria-hidden="true">›</i>
-      </button>
-    </div>
-  </section>
-
-  <app-tool-category
-    title="Fuerza"
-    description="Estima y planifica cargas"
-    detail="Máximos, porcentajes y equivalencias."
-    [expanded]="true"
-  >
-    <button type="button" class="tool-link" (click)="openTool.emit('oneRm')">
-      <strong>1RM estimado</strong><small>Peso y repeticiones</small><i aria-hidden="true">›</i>
-    </button>
-    <button type="button" class="tool-link" (click)="openTool.emit('percentages')">
-      <strong>Cargas por porcentaje</strong><small>Desde un 1RM manual</small><i aria-hidden="true">›</i>
-    </button>
-    <button type="button" class="tool-link" (click)="openTool.emit('equivalences')">
-      <strong>Equivalencias</strong><small>Cambiar repeticiones y carga</small><i aria-hidden="true">›</i>
-    </button>
-  </app-tool-category>
-
-  <app-tool-category
-    title="Esfuerzo"
-    description="Entiende la intensidad de una serie"
-    detail="RIR, RPE y notación de entrenamiento."
-  >
-    <button type="button" class="tool-link" (click)="openTool.emit('rirRpe')">
-      <strong>RIR y RPE</strong><small>Interpretar o calcular carga</small><i aria-hidden="true">›</i>
-    </button>
-    <button type="button" class="tool-link" (click)="openTool.emit('notation')">
-      <strong>Notación @</strong><small>Interpretar una prescripción</small><i aria-hidden="true">›</i>
-    </button>
-  </app-tool-category>
-
-  <app-tool-category
-    title="Preparación"
-    description="Prepara tu próxima serie"
-    detail="Barra, calentamiento y descansos."
-  >
-    <button type="button" class="tool-link" (click)="openTool.emit('plates')">
-      <strong>Calculadora de discos</strong><small>Montaje por cada lado</small><i aria-hidden="true">›</i>
-    </button>
-    <button type="button" class="tool-link" (click)="openTool.emit('warmup')">
-      <strong>Calentamiento</strong><small>Series de aproximación</small><i aria-hidden="true">›</i>
-    </button>
-    <button type="button" class="tool-link" (click)="openTool.emit('timer')">
-      <strong>Temporizador</strong><small>Descanso entre series</small><i aria-hidden="true">›</i>
-    </button>
-  </app-tool-category>
-
-  <app-tool-category
-    title="Seguimiento"
-    description="Analiza una sesión o tu progresión"
-    detail="Volumen, recomendaciones y comparación."
-  >
-    <button type="button" class="tool-link" (click)="openTool.emit('volume')">
-      <strong>Volumen</strong><small>Series × repeticiones × peso</small><i aria-hidden="true">›</i>
-    </button>
-    <button type="button" class="tool-link" (click)="openTool.emit('progression')">
-      <strong>Progresión</strong><small>Recomendación desde sesiones</small><i aria-hidden="true">›</i>
-    </button>
-    <button type="button" class="tool-link" (click)="openTool.emit('compareSessions')">
-      <strong>Comparar sesiones</strong><small>Actual frente a referencia</small><i aria-hidden="true">›</i>
-    </button>
-  </app-tool-category>
+  } @else {
+    <section class="no-tools" role="status">
+      <span aria-hidden="true">⌕</span>
+      <strong>No encontramos esa herramienta</strong>
+      <p>Prueba otra palabra o vuelve a mostrar todo el catálogo.</p>
+      <button type="button" (click)="clearFilters()">Ver todas las herramientas</button>
+    </section>
+  }
 </section>

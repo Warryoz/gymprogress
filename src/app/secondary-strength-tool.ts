@@ -182,6 +182,18 @@ export class SecondaryStrengthTool implements OnInit, OnDestroy {
       .padStart(2, '0')}`;
   });
 
+  protected readonly actionLabel = computed(
+    () =>
+      ({
+        percentages: 'Calcular carga',
+        equivalences: 'Calcular equivalencia',
+        notation: 'Interpretar notación',
+        warmup: 'Crear calentamiento',
+        timer: 'Iniciar temporizador',
+        volume: 'Calcular volumen',
+      })[this.tool()],
+  );
+
   public ngOnInit(): void {
     this.unit.set(this.initialUnit());
     this.increment.set(this.initialUnit() === 'kg' ? 2.5 : 5);
@@ -232,6 +244,14 @@ export class SecondaryStrengthTool implements OnInit, OnDestroy {
   protected resetTimer(): void {
     this.stopTimer();
     this.timerRemaining.set(this.timerSeconds() ?? 0);
+    this.calculated.set(false);
+  }
+
+  protected setTimerPreset(seconds: number): void {
+    this.stopTimer();
+    this.timerSeconds.set(seconds);
+    this.timerRemaining.set(seconds);
+    this.attempted.set(false);
     this.calculated.set(false);
   }
 

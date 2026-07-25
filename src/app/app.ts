@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { AppHeader } from './app-header';
 import { ExerciseCard } from './exercise-card';
+import { WorkoutSessionBar } from './workout-session-bar';
 import { TechnicalTooltip } from './technical-tooltip';
 import {
   StrengthToolsHome,
@@ -154,6 +155,21 @@ type StrengthCalculatorPage =
   | SecondaryStrengthToolId;
 type CalculatorDataSource = 'manual' | 'history';
 
+interface StoredWorkoutSession {
+  version: 1;
+  week: number;
+  day: string;
+  completedRows: number[];
+  startedAt: number | null;
+  inProgress: boolean;
+  completed: boolean;
+  restTimerEndsAt: number | null;
+  restTimerPausedSeconds: number;
+  restTimerDuration: number;
+}
+
+const WORKOUT_SESSION_STORAGE_KEY = 'gym-progress-workout-session';
+
 const DEFAULT_PLATE_INVENTORIES: Record<WeightUnit, PlateInventoryItem[]> = {
   kg: [
     { weight: 25, quantity: 4 },
@@ -182,6 +198,7 @@ export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator';
     CommonModule,
     AppHeader,
     ExerciseCard,
+    WorkoutSessionBar,
     TechnicalTooltip,
     StrengthToolsHome,
     CalculatorHeader,
@@ -209,6 +226,12 @@ export class App implements OnInit, OnDestroy {
   public readonly trainingInProgress = signal(false);
   public readonly trainingCompleted = signal(false);
   public readonly completedExerciseRows = signal<ReadonlySet<number>>(new Set<number>());
+  public readonly workoutStartedAt = signal<number | null>(null);
+  public readonly clockNow = signal(Date.now());
+  public readonly restTimerEndsAt = signal<number | null>(null);
+  public readonly restTimerPausedSeconds = signal(0);
+  public readonly restTimerDuration = signal(0);
+  public readonly restTimerFinished = signal(false);
   public readonly showMoreStats = signal(false);
   public readonly advancedTableOpen = signal(false);
   public readonly importPanelOpen = signal(false);
@@ -351,6 +374,7 @@ export class App implements OnInit, OnDestroy {
       ? null
       : window.matchMedia('(prefers-color-scheme: dark)');
   private readonly systemThemeListener = (): void => this.applyTheme();
+  private clockInterval: ReturnType<typeof setInterval> | null = null;
 
   public constructor() {
     const savedTheme = this.readStoredTheme();
@@ -389,6 +413,28 @@ export class App implements OnInit, OnDestroy {
     };
   });
 
+  public readonly workoutElapsedSeconds = computed(() => {
+    const startedAt = this.workoutStartedAt();
+    return startedAt ? Math.max(0, Math.floor((this.clockNow() - startedAt) / 1000)) : 0;
+  });
+
+  public readonly nextWorkoutExercise = computed(
+    () =>
+      this.currentWorkoutDay()?.rows.find(
+        (row) => !this.completedExerciseRows().has(row.sourceRow),
+      )?.exercise ?? '',
+  );
+
+  public readonly restTimerRemaining = computed(() => {
+    const endsAt = this.restTimerEndsAt();
+    if (endsAt === null) return this.restTimerPausedSeconds();
+    return Math.max(0, Math.ceil((endsAt - this.clockNow()) / 1000));
+  });
+
+  public readonly restTimerPaused = computed(
+    () => this.restTimerEndsAt() === null && this.restTimerPausedSeconds() > 0,
+  );
+
   public readonly workoutActionLabel = computed(() => {
     if (this.trainingInProgress() && this.currentWorkoutProgress().allCompleted) {
       return 'Finalizar entrenamiento';
@@ -417,6 +463,22 @@ export class App implements OnInit, OnDestroy {
     }
     return 'Entrenar';
   });
+
+  public readonly strengthCalculatorTitle = computed(
+    () =>
+      ({
+        home: 'Todas las herramientas',
+        oneRm: 'Estimar 1RM',
+        rirRpe: 'RIR y RPE',
+        plates: 'Montar la barra',
+        percentages: 'Cargas por porcentaje',
+        equivalences: 'Equivalencia de repeticiones',
+        notation: 'Notación de entrenamiento',
+        warmup: 'Calentamiento',
+        timer: 'Temporizador',
+        volume: 'Volumen de entrenamiento',
+      })[this.strengthCalculatorPage()],
+  );
 
   public readonly currentPlanWeekExerciseCount = computed(
     () => this.currentPlanWeek()?.rows.length ?? 0,
@@ -1158,11 +1220,30 @@ export class App implements OnInit, OnDestroy {
 
   public async ngOnInit(): Promise<void> {
     this.systemThemeQuery?.addEventListener('change', this.systemThemeListener);
+    this.clockInterval = setInterval(() => {
+      this.clockNow.set(Date.now());
+      if (
+        this.restTimerEndsAt() !== null &&
+        this.restTimerRemaining() <= 0 &&
+        !this.restTimerFinished()
+      ) {
+        this.restTimerEndsAt.set(null);
+        this.restTimerPausedSeconds.set(0);
+        this.restTimerFinished.set(true);
+        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+          navigator.vibrate([120, 80, 120]);
+        }
+        this.persistWorkoutSession();
+      }
+    }, 1000);
     await Promise.all([this.loadSampleCsv(), this.loadTrainingPlan()]);
   }
 
   public ngOnDestroy(): void {
     this.systemThemeQuery?.removeEventListener('change', this.systemThemeListener);
+    if (this.clockInterval !== null) {
+      clearInterval(this.clockInterval);
+    }
   }
 
   public setActiveView(view: ActiveView): void {
@@ -1177,6 +1258,8 @@ export class App implements OnInit, OnDestroy {
           }),
         0,
       );
+    } else if (view === 'calculator') {
+      this.scrollStrengthIntoView();
     }
   }
 
@@ -1205,6 +1288,8 @@ export class App implements OnInit, OnDestroy {
       this.trainingInProgress.set(false);
       this.trainingCompleted.set(true);
       this.planMode.set('overview');
+      this.dismissRestTimer();
+      this.persistWorkoutSession();
       document.querySelector('#current-workout')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
@@ -1216,11 +1301,20 @@ export class App implements OnInit, OnDestroy {
       );
       this.completedExerciseRows.set(remaining);
       this.trainingCompleted.set(false);
+      this.workoutStartedAt.set(Date.now());
+      this.dismissRestTimer();
     }
 
     this.selectedPlanDay.set(day.name);
     this.trainingInProgress.set(true);
+    this.persistWorkoutSession();
     setTimeout(() => this.scrollToNextExercise(), 0);
+  }
+
+  public leaveWorkoutFocus(): void {
+    this.planMode.set('overview');
+    this.persistWorkoutSession();
+    document.querySelector('#current-workout')?.scrollIntoView({ behavior: 'smooth' });
   }
 
   public setExerciseCompleted(sourceRow: number, completed: boolean): void {
@@ -1235,8 +1329,57 @@ export class App implements OnInit, OnDestroy {
     this.completedExerciseRows.set(next);
 
     if (completed) {
+      const row = this.currentWorkoutDay()?.rows.find((item) => item.sourceRow === sourceRow);
+      if (!this.currentWorkoutProgress().allCompleted) {
+        this.startRestTimer(row?.rest ?? '');
+      } else {
+        this.dismissRestTimer();
+      }
       setTimeout(() => this.scrollToNextExercise(), 180);
+    } else {
+      this.dismissRestTimer();
     }
+
+    this.persistWorkoutSession();
+  }
+
+  public toggleRestTimer(): void {
+    const endsAt = this.restTimerEndsAt();
+    if (endsAt !== null) {
+      this.restTimerPausedSeconds.set(
+        Math.max(1, Math.ceil((endsAt - Date.now()) / 1000)),
+      );
+      this.restTimerEndsAt.set(null);
+    } else if (this.restTimerPausedSeconds() > 0) {
+      this.restTimerEndsAt.set(Date.now() + this.restTimerPausedSeconds() * 1000);
+      this.restTimerPausedSeconds.set(0);
+    }
+    this.clockNow.set(Date.now());
+    this.persistWorkoutSession();
+  }
+
+  public addRestTime(seconds = 30): void {
+    if (this.restTimerFinished()) {
+      this.restTimerFinished.set(false);
+      this.restTimerDuration.set(seconds);
+      this.restTimerEndsAt.set(Date.now() + seconds * 1000);
+    } else if (this.restTimerEndsAt() !== null) {
+      this.restTimerEndsAt.update((endsAt) => (endsAt ?? Date.now()) + seconds * 1000);
+      this.restTimerDuration.update((duration) => duration + seconds);
+    } else if (this.restTimerPausedSeconds() > 0) {
+      this.restTimerPausedSeconds.update((remaining) => remaining + seconds);
+      this.restTimerDuration.update((duration) => duration + seconds);
+    }
+    this.clockNow.set(Date.now());
+    this.persistWorkoutSession();
+  }
+
+  public dismissRestTimer(): void {
+    this.restTimerEndsAt.set(null);
+    this.restTimerPausedSeconds.set(0);
+    this.restTimerDuration.set(0);
+    this.restTimerFinished.set(false);
+    this.persistWorkoutSession();
   }
 
   public scrollToNextExercise(): void {
@@ -1302,6 +1445,7 @@ export class App implements OnInit, OnDestroy {
     if (tab === 'calculate') {
       this.strengthCalculatorPage.set('home');
     }
+    this.scrollStrengthIntoView();
   }
 
   public openStrengthCalculator(
@@ -1309,6 +1453,7 @@ export class App implements OnInit, OnDestroy {
   ): void {
     if (page === 'progression' || page === 'compareSessions') {
       this.strengthTab.set('compare');
+      this.scrollStrengthIntoView();
       return;
     }
     this.strengthCalculatorPage.set(page);
@@ -1321,6 +1466,7 @@ export class App implements OnInit, OnDestroy {
       this.platesAttempted.set(false);
       this.platesCalculated.set(false);
     }
+    this.scrollStrengthIntoView('#strength-tool-context');
   }
 
   public calculateOneRm(): void {
@@ -1363,6 +1509,7 @@ export class App implements OnInit, OnDestroy {
     this.appliedLoadMessage.set(
       `${this.formatCalculatorWeight(this.oneRepMaxResult().direct)} recibidos desde 1RM.`,
     );
+    this.scrollStrengthIntoView('#strength-tool-context');
   }
 
   public sendRirLoadToPlates(result: { weight: number; unit: WeightUnit }): void {
@@ -1377,6 +1524,7 @@ export class App implements OnInit, OnDestroy {
     this.appliedLoadMessage.set(
       `${this.formatCalculatorWeight(result.weight)} recibidos desde RIR/RPE.`,
     );
+    this.scrollStrengthIntoView('#strength-tool-context');
   }
 
   public calculatePlates(): void {
@@ -1736,6 +1884,7 @@ export class App implements OnInit, OnDestroy {
       this.selectedSummaryWeek.set('all');
       this.selectedSummaryRoutine.set('all');
       this.selectedPlanDay.set(parsed.weeks[0]?.days[0]?.name ?? 'all');
+      this.restoreWorkoutSession(parsed);
     } catch (error) {
       this.trainingPlan.set(null);
       this.planError.set(this.errorMessage(error));
@@ -1757,6 +1906,9 @@ export class App implements OnInit, OnDestroy {
     this.weekOverviewOpen.set(false);
     this.trainingInProgress.set(false);
     this.trainingCompleted.set(false);
+    this.workoutStartedAt.set(null);
+    this.dismissRestTimer();
+    this.persistWorkoutSession();
   }
 
   public selectSummaryWeek(value: string): void {
@@ -1910,6 +2062,106 @@ export class App implements OnInit, OnDestroy {
       return value === 'dark' || value === 'light' || value === 'system' ? value : null;
     } catch {
       return null;
+    }
+  }
+
+  private startRestTimer(rest: string): void {
+    const duration = this.parseRestDurationSeconds(rest);
+    if (!duration) {
+      this.dismissRestTimer();
+      return;
+    }
+
+    this.restTimerDuration.set(duration);
+    this.restTimerPausedSeconds.set(0);
+    this.restTimerFinished.set(false);
+    this.restTimerEndsAt.set(Date.now() + duration * 1000);
+    this.clockNow.set(Date.now());
+  }
+
+  private scrollStrengthIntoView(selector = '#strength-workspace'): void {
+    setTimeout(
+      () =>
+        document.querySelector(selector)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        }),
+      0,
+    );
+  }
+
+  private parseRestDurationSeconds(rest: string): number {
+    const values = [...rest.matchAll(/\d+(?:[.,]\d+)?/g)].map((match) =>
+      Number(match[0].replace(',', '.')),
+    );
+    if (!values.length) return 0;
+
+    const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const usesMinutes = /min/i.test(rest);
+    return Math.max(15, Math.round(average * (usesMinutes ? 60 : 1)));
+  }
+
+  private persistWorkoutSession(): void {
+    try {
+      const session: StoredWorkoutSession = {
+        version: 1,
+        week: this.selectedPlanWeek(),
+        day: this.selectedPlanDay(),
+        completedRows: [...this.completedExerciseRows()],
+        startedAt: this.workoutStartedAt(),
+        inProgress: this.trainingInProgress(),
+        completed: this.trainingCompleted(),
+        restTimerEndsAt: this.restTimerEndsAt(),
+        restTimerPausedSeconds: this.restTimerPausedSeconds(),
+        restTimerDuration: this.restTimerDuration(),
+      };
+      localStorage.setItem(WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(session));
+    } catch {
+      // Training remains fully usable when storage is unavailable.
+    }
+  }
+
+  private restoreWorkoutSession(plan: ParsedTrainingPlan): void {
+    try {
+      const raw = localStorage.getItem(WORKOUT_SESSION_STORAGE_KEY);
+      if (!raw) return;
+      const stored = JSON.parse(raw) as Partial<StoredWorkoutSession>;
+      if (stored.version !== 1 || !stored.inProgress) return;
+
+      const week = plan.weeks.find((item) => item.week === stored.week);
+      const day = week?.days.find((item) => item.name === stored.day);
+      if (!week || !day) return;
+
+      const validRows = new Set(day.rows.map((row) => row.sourceRow));
+      this.selectedPlanWeek.set(week.week);
+      this.selectedPlanDay.set(day.name);
+      this.completedExerciseRows.set(
+        new Set((stored.completedRows ?? []).filter((row) => validRows.has(row))),
+      );
+      this.workoutStartedAt.set(
+        typeof stored.startedAt === 'number' ? stored.startedAt : Date.now(),
+      );
+      this.trainingInProgress.set(true);
+      this.trainingCompleted.set(false);
+      this.planMode.set('workout');
+
+      const duration = Math.max(0, Number(stored.restTimerDuration) || 0);
+      const paused = Math.max(0, Number(stored.restTimerPausedSeconds) || 0);
+      const endsAt =
+        typeof stored.restTimerEndsAt === 'number' ? stored.restTimerEndsAt : null;
+      this.restTimerDuration.set(duration);
+      if (endsAt !== null && endsAt > Date.now()) {
+        this.restTimerEndsAt.set(endsAt);
+        this.restTimerPausedSeconds.set(0);
+      } else if (paused > 0) {
+        this.restTimerEndsAt.set(null);
+        this.restTimerPausedSeconds.set(paused);
+      } else if (duration > 0) {
+        this.restTimerFinished.set(true);
+      }
+      this.clockNow.set(Date.now());
+    } catch {
+      // Ignore malformed session data and start with a clean plan.
     }
   }
 

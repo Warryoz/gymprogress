@@ -16,7 +16,6 @@ import { Component, input } from '@angular/core';
       background: color-mix(in srgb, #75d5ef 4%, var(--surface));
     }
     summary {
-      min-height: 44px;
       padding: 12px 14px;
       cursor: pointer;
       color: #75d5ef;
