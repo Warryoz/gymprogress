@@ -48,6 +48,29 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Semana 1');
   });
 
+  it('offers a routine-specific sharing preview from the plan', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await app.loadTrainingPlan();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const shareButton = Array.from(compiled.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Compartir rutina'),
+    );
+
+    expect(shareButton).toBeTruthy();
+    shareButton?.click();
+    fixture.detectChanges();
+
+    const dialog = compiled.querySelector('[role="dialog"]');
+    expect(dialog).toBeTruthy();
+    expect(dialog?.textContent).toContain('D1 Push');
+    expect(dialog?.textContent).toContain('Incline bench press');
+    expect(dialog?.textContent).toContain('Descargar PNG');
+    expect(dialog?.textContent).toContain('Copiar como texto');
+  });
+
   it('calculates training loads and plates', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;

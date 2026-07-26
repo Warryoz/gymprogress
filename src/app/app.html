@@ -58,9 +58,14 @@
               <p class="workout-complete-message">✓ Entrenamiento completado</p>
             }
           </div>
-          <button type="button" class="primary-action" (click)="startTraining()">
-            {{ workoutActionLabel() }}
-          </button>
+          <div class="current-workout-actions">
+            @if (routineShareData(); as shareRoutine) {
+              <app-routine-share-button [routine]="shareRoutine" />
+            }
+            <button type="button" class="primary-action" (click)="startTraining()">
+              {{ workoutActionLabel() }}
+            </button>
+          </div>
         </section>
 
         @if (trainingInProgress() && planMode() === 'workout') {

@@ -2,6 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { AppHeader } from './app-header';
 import { ExerciseCard } from './exercise-card';
+import { RoutineShareButton } from './routine-share-button';
+import { RoutineShareData } from './routine-share-text.util';
 import { WorkoutSessionBar } from './workout-session-bar';
 import { TechnicalTooltip } from './technical-tooltip';
 import {
@@ -198,6 +200,7 @@ export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator';
     CommonModule,
     AppHeader,
     ExerciseCard,
+    RoutineShareButton,
     WorkoutSessionBar,
     TechnicalTooltip,
     StrengthToolsHome,
@@ -395,6 +398,26 @@ export class App implements OnInit, OnDestroy {
   public readonly currentWorkoutDay = computed<PlanDay | null>(() => {
     const days = this.planDayOptions();
     return days.find((day) => day.name === this.selectedPlanDay()) ?? days[0] ?? null;
+  });
+
+  public readonly routineShareData = computed<RoutineShareData | null>(() => {
+    const week = this.currentPlanWeek();
+    const day = this.currentWorkoutDay();
+
+    if (!week || !day) {
+      return null;
+    }
+
+    return {
+      title: day.name,
+      week: week.week,
+      totalWeeks: this.planWeeks().length,
+      phase: day.phase || week.phase,
+      focus: day.focus,
+      estimatedDuration: this.estimatedWorkoutDuration(day),
+      rows: day.rows,
+      generatedAt: new Date(),
+    };
   });
 
   public readonly currentPlanWeekIndex = computed(() =>
