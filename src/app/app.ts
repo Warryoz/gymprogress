@@ -24,6 +24,7 @@ import {
 import { ThemePreference } from './theme-toggle';
 import type { QuickLastSet } from './quick-tools-drawer';
 import { parseTrainingNotation } from './quick-strength-tools';
+import { buildBlockTwoPlan } from './block-two-plan';
 import {
   ExerciseProgress,
   ParsedTrainingLog,
@@ -159,6 +160,7 @@ type CalculatorDataSource = 'manual' | 'history';
 
 interface StoredWorkoutSession {
   version: 1;
+  block?: TrainingBlockId;
   week: number;
   day: string;
   completedRows: number[];
@@ -171,6 +173,16 @@ interface StoredWorkoutSession {
 }
 
 const WORKOUT_SESSION_STORAGE_KEY = 'gym-progress-workout-session';
+const ACTIVE_TRAINING_BLOCK_STORAGE_KEY = 'gym-progress-active-training-block';
+
+export type TrainingBlockId = 'block1' | 'block2';
+
+interface TrainingBlockOption {
+  id: TrainingBlockId;
+  label: string;
+  title: string;
+  description: string;
+}
 
 const DEFAULT_PLATE_INVENTORIES: Record<WeightUnit, PlateInventoryItem[]> = {
   kg: [
@@ -217,7 +229,25 @@ export class App implements OnInit, OnDestroy {
   public readonly themePreference = signal<ThemePreference>('dark');
   public readonly csvText = signal('');
   public readonly trainingLog = signal<ParsedTrainingLog | null>(null);
-  public readonly trainingPlan = signal<ParsedTrainingPlan | null>(null);
+  public readonly trainingPlans = signal<Partial<Record<TrainingBlockId, ParsedTrainingPlan>>>({});
+  public readonly activeTrainingBlock = signal<TrainingBlockId>('block1');
+  public readonly trainingPlan = computed(
+    () => this.trainingPlans()[this.activeTrainingBlock()] ?? null,
+  );
+  public readonly trainingBlocks: readonly TrainingBlockOption[] = [
+    {
+      id: 'block1',
+      label: 'Bloque 1',
+      title: 'Hipertrofia y rehabilitación',
+      description: 'Base de 8 semanas con tempo controlado y tolerancia tendinosa.',
+    },
+    {
+      id: 'block2',
+      label: 'Bloque 2',
+      title: 'Transición hacia fuerza',
+      description: '8 semanas de intensidad progresiva, deload y evaluación submáxima.',
+    },
+  ];
   public readonly selectedWorkout = signal('all');
   public readonly selectedExerciseKey = signal('');
   public readonly selectedPlanWeek = signal(1);
@@ -382,11 +412,18 @@ export class App implements OnInit, OnDestroy {
   public constructor() {
     const savedTheme = this.readStoredTheme();
     this.themePreference.set(savedTheme ?? 'dark');
+    this.activeTrainingBlock.set(this.readStoredTrainingBlock() ?? 'block1');
     this.loadStrengthSettings();
     this.applyTheme();
   }
 
   public readonly planWeeks = computed(() => this.trainingPlan()?.weeks ?? []);
+
+  public readonly activeTrainingBlockDetails = computed(
+    () =>
+      this.trainingBlocks.find((block) => block.id === this.activeTrainingBlock()) ??
+      this.trainingBlocks[0],
+  );
 
   public readonly currentPlanWeek = computed(() => {
     const weeks = this.planWeeks();
@@ -560,7 +597,10 @@ export class App implements OnInit, OnDestroy {
     return [
       {
         label: 'Periodo',
-        value: this.selectedSummaryWeek() === 'all' ? '8 semanas' : `Semana ${this.selectedSummaryWeek()}`,
+        value:
+          this.selectedSummaryWeek() === 'all'
+            ? `${plan.weeks.length} semanas`
+            : `Semana ${this.selectedSummaryWeek()}`,
         detail: `${this.formatInteger(days)} sesiones planificadas`,
       },
       {
@@ -1902,16 +1942,34 @@ export class App implements OnInit, OnDestroy {
         throw new Error('No se encontraron semanas en el plan.');
       }
 
-      this.trainingPlan.set(parsed);
-      this.selectedPlanWeek.set(parsed.weeks[0].week);
-      this.selectedSummaryWeek.set('all');
-      this.selectedSummaryRoutine.set('all');
-      this.selectedPlanDay.set(parsed.weeks[0]?.days[0]?.name ?? 'all');
-      this.restoreWorkoutSession(parsed);
+      const blockTwo = buildBlockTwoPlan();
+      this.trainingPlans.set({ block1: parsed, block2: blockTwo });
+      const activePlan = this.trainingPlan() ?? parsed;
+      this.initializePlanSelection(activePlan);
+      this.restoreWorkoutSession(activePlan);
     } catch (error) {
-      this.trainingPlan.set(null);
+      this.trainingPlans.set({});
       this.planError.set(this.errorMessage(error));
     }
+  }
+
+  public selectTrainingBlock(block: TrainingBlockId): void {
+    if (block === this.activeTrainingBlock()) {
+      return;
+    }
+
+    this.persistWorkoutSession();
+    this.activeTrainingBlock.set(block);
+    this.storeActiveTrainingBlock(block);
+    this.resetWorkoutState();
+
+    const plan = this.trainingPlan();
+    if (!plan) {
+      return;
+    }
+
+    this.initializePlanSelection(plan);
+    this.restoreWorkoutSession(plan);
   }
 
   public selectWorkout(workout: string): void {
@@ -2088,6 +2146,40 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  private readStoredTrainingBlock(): TrainingBlockId | null {
+    try {
+      const value = localStorage.getItem(ACTIVE_TRAINING_BLOCK_STORAGE_KEY);
+      return value === 'block1' || value === 'block2' ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private storeActiveTrainingBlock(block: TrainingBlockId): void {
+    try {
+      localStorage.setItem(ACTIVE_TRAINING_BLOCK_STORAGE_KEY, block);
+    } catch {
+      // Block switching remains available when storage is unavailable.
+    }
+  }
+
+  private initializePlanSelection(plan: ParsedTrainingPlan): void {
+    this.selectedPlanWeek.set(plan.weeks[0]?.week ?? 1);
+    this.selectedSummaryWeek.set('all');
+    this.selectedSummaryRoutine.set('all');
+    this.selectedPlanDay.set(plan.weeks[0]?.days[0]?.name ?? 'all');
+    this.weekOverviewOpen.set(false);
+  }
+
+  private resetWorkoutState(): void {
+    this.planMode.set('overview');
+    this.trainingInProgress.set(false);
+    this.trainingCompleted.set(false);
+    this.completedExerciseRows.set(new Set<number>());
+    this.workoutStartedAt.set(null);
+    this.dismissRestTimer();
+  }
+
   private startRestTimer(rest: string): void {
     const duration = this.parseRestDurationSeconds(rest);
     if (!duration) {
@@ -2128,6 +2220,7 @@ export class App implements OnInit, OnDestroy {
     try {
       const session: StoredWorkoutSession = {
         version: 1,
+        block: this.activeTrainingBlock(),
         week: this.selectedPlanWeek(),
         day: this.selectedPlanDay(),
         completedRows: [...this.completedExerciseRows()],
@@ -2138,7 +2231,11 @@ export class App implements OnInit, OnDestroy {
         restTimerPausedSeconds: this.restTimerPausedSeconds(),
         restTimerDuration: this.restTimerDuration(),
       };
-      localStorage.setItem(WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(session));
+      const serialized = JSON.stringify(session);
+      localStorage.setItem(this.workoutSessionStorageKey(), serialized);
+      if (this.activeTrainingBlock() === 'block1') {
+        localStorage.setItem(WORKOUT_SESSION_STORAGE_KEY, serialized);
+      }
     } catch {
       // Training remains fully usable when storage is unavailable.
     }
@@ -2146,10 +2243,20 @@ export class App implements OnInit, OnDestroy {
 
   private restoreWorkoutSession(plan: ParsedTrainingPlan): void {
     try {
-      const raw = localStorage.getItem(WORKOUT_SESSION_STORAGE_KEY);
+      const raw =
+        localStorage.getItem(this.workoutSessionStorageKey()) ??
+        (this.activeTrainingBlock() === 'block1'
+          ? localStorage.getItem(WORKOUT_SESSION_STORAGE_KEY)
+          : null);
       if (!raw) return;
       const stored = JSON.parse(raw) as Partial<StoredWorkoutSession>;
-      if (stored.version !== 1 || !stored.inProgress) return;
+      if (
+        stored.version !== 1 ||
+        !stored.inProgress ||
+        (stored.block !== undefined && stored.block !== this.activeTrainingBlock())
+      ) {
+        return;
+      }
 
       const week = plan.weeks.find((item) => item.week === stored.week);
       const day = week?.days.find((item) => item.name === stored.day);
@@ -2186,6 +2293,10 @@ export class App implements OnInit, OnDestroy {
     } catch {
       // Ignore malformed session data and start with a clean plan.
     }
+  }
+
+  private workoutSessionStorageKey(block = this.activeTrainingBlock()): string {
+    return `${WORKOUT_SESSION_STORAGE_KEY}-${block}`;
   }
 
   private loadStrengthSettings(): void {

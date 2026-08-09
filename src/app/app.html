@@ -14,6 +14,34 @@
   [class.workout-focus-mode]="planMode() === 'workout'"
   tabindex="-1"
 >
+  @if (
+    (activeView() === 'plan' && planMode() !== 'workout') ||
+    activeView() === 'routineSummary'
+  ) {
+    <section class="training-block-switcher" aria-labelledby="training-block-title">
+      <div class="training-block-heading">
+        <div>
+          <p class="eyebrow">Programa</p>
+          <h2 id="training-block-title">{{ activeTrainingBlockDetails().title }}</h2>
+        </div>
+        <span>{{ activeTrainingBlockDetails().description }}</span>
+      </div>
+      <div class="training-block-tabs" role="tablist" aria-label="Bloque de entrenamiento">
+        @for (block of trainingBlocks; track block.id) {
+          <button
+            type="button"
+            role="tab"
+            [class.active]="activeTrainingBlock() === block.id"
+            [attr.aria-selected]="activeTrainingBlock() === block.id"
+            (click)="selectTrainingBlock(block.id)"
+          >
+            <strong>{{ block.label }}</strong>
+            <small>{{ block.title }}</small>
+          </button>
+        }
+      </div>
+    </section>
+  }
 
   @if (activeView() === 'plan') {
     @if (planError(); as message) {
@@ -27,7 +55,9 @@
       @if (currentWorkoutDay(); as workout) {
         <section id="current-workout" class="current-workout-card">
           <div>
-            <p class="eyebrow">Semana {{ selectedPlanWeek() }} · Hoy</p>
+            <p class="eyebrow">
+              {{ activeTrainingBlockDetails().label }} · Semana {{ selectedPlanWeek() }} · Hoy
+            </p>
             <h1>{{ workout.name }}</h1>
             <div class="workout-context">
               <span>Enfoque del día</span>

@@ -268,6 +268,68 @@ textarea:focus,
   font-weight: 850;
 }
 
+.training-block-switcher {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.2fr);
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: var(--surface);
+}
+
+.training-block-heading {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.training-block-heading h2 {
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+}
+
+.training-block-heading > span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.training-block-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.training-block-tabs button {
+  display: grid;
+  min-height: 58px;
+  gap: 3px;
+  justify-items: start;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: transparent;
+  text-align: left;
+}
+
+.training-block-tabs button.active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+}
+
+.training-block-tabs small {
+  color: inherit;
+  font-size: 0.75rem;
+}
+
 .current-workout-actions {
   display: flex;
   flex: 0 0 auto;
@@ -1942,6 +2004,15 @@ textarea {
 
   .current-workout-actions {
     width: 100%;
+  }
+
+  .training-block-switcher {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .training-block-tabs button {
+    min-height: 54px;
   }
 
   .compact-week-selector {

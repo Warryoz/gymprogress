@@ -45,6 +45,23 @@ export interface ParsedTrainingPlan {
   warnings: string[];
 }
 
+export function createTrainingPlan(
+  rows: TrainingPlanRow[],
+  sourceName: string,
+): ParsedTrainingPlan {
+  const normalizedRows = rows.map((row, index) => ({
+    ...row,
+    sourceRow: row.sourceRow || index + 2,
+  }));
+
+  return {
+    sourceName,
+    rows: normalizedRows,
+    weeks: buildWeeks(normalizedRows),
+    warnings: [],
+  };
+}
+
 export function formatSuggestedLoad(value: string): string {
   const load = String(value ?? '').trim();
 

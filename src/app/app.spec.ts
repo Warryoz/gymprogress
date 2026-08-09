@@ -71,6 +71,37 @@ describe('App', () => {
     expect(dialog?.textContent).toContain('Copiar como texto');
   });
 
+  it('switches to the complete eight-week strength block with the same plan tools', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await app.loadTrainingPlan();
+
+    app.selectTrainingBlock('block2');
+    fixture.detectChanges();
+
+    expect(app.planWeeks()).toHaveLength(8);
+    expect(app.planDayOptions().map((day) => day.name)).toEqual([
+      'D1 Upper fuerza',
+      'D2 Lower fuerza',
+      'D3 Upper volumen',
+      'D4 Lower volumen',
+    ]);
+    expect(app.currentWorkoutDay()?.rows[0]?.exercise).toBe('Press banca o press inclinado');
+    expect(app.currentWorkoutDay()?.rows[0]?.suggestedLoad).toBe('72.5 kg (inclinado)');
+    expect(
+      app
+        .trainingPlan()
+        ?.rows.filter((row) => !row.block.includes('Rehabilitación'))
+        .every((row) => row.suggestedLoad !== 'Según RIR'),
+    ).toBe(true);
+
+    app.selectPlanWeek(8);
+    const mainLift = app.currentWorkoutDay()?.rows[0];
+    expect(mainLift?.repsOrTime).toContain('top set');
+    expect(mainLift?.suggestedLoad).toBe('Top: 85 kg · back-off: 77.5–80 kg');
+    expect(localStorage.getItem('gym-progress-active-training-block')).toBe('block2');
+  });
+
   it('calculates training loads and plates', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
