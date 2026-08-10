@@ -25,6 +25,7 @@ interface ExerciseTemplate {
   reps?: string;
   sets?: string;
   rir?: string;
+  fixedPrescription?: boolean;
   rest: string;
   objective: string;
   notes: string;
@@ -136,7 +137,8 @@ const EXERCISES: ExerciseTemplate[] = [
     kind: 'basic',
     rest: '2–4 min',
     objective: 'Progresar el patrón de empuje principal con técnica estable.',
-    notes: 'Elige la variante mejor tolerada por el hombro. Sin grinders ni fallo.',
+    notes:
+      'Empieza en 75 kg. Como el disco mínimo es de 2.5 kg por lado, aumenta 5 kg totales solo cuando mantengas el RIR y la regla de 24 h.',
   },
   {
     day: 'D1 Upper fuerza',
@@ -147,7 +149,8 @@ const EXERCISES: ExerciseTemplate[] = [
     reps: '6–8',
     rest: '2–3 min',
     objective: 'Desarrollar fuerza de tracción vertical con control.',
-    notes: 'Usa peso corporal si el lastre altera la técnica o aumenta molestias.',
+    notes:
+      'Carga inicial real: 10 kg de lastre. Mantén el peso si el RIR baja o aumenta la molestia.',
   },
   {
     day: 'D1 Upper fuerza',
@@ -177,13 +180,26 @@ const EXERCISES: ExerciseTemplate[] = [
     day: 'D1 Upper fuerza',
     focus: 'Fuerza de tren superior y tolerancia de hombro, codo y muñeca',
     block: 'Accesorio',
-    exercise: 'Tríceps',
+    exercise: 'Fondos lastrados',
+    kind: 'accessory',
+    sets: '2',
+    reps: '10',
+    fixedPrescription: true,
+    rest: '2 min',
+    objective: 'Añadir dos series de fondos manteniendo técnica y margen.',
+    notes: 'Dos series de 10 con 20 kg de lastre como punto de partida. No llegar al fallo.',
+  },
+  {
+    day: 'D1 Upper fuerza',
+    focus: 'Fuerza de tren superior y tolerancia de hombro, codo y muñeca',
+    block: 'Accesorio',
+    exercise: 'Extensión de tríceps sobre la cabeza',
     kind: 'accessory',
     sets: '2',
     reps: '10–15',
     rest: '60–90 s',
     objective: 'Mantener volumen de tríceps con buena tolerancia de codo.',
-    notes: 'Escoge cable, banda o variante indolora.',
+    notes: 'Carga inicial recalculada desde los 14 kg realizados sobre la cabeza.',
   },
   {
     day: 'D1 Upper fuerza',
@@ -400,24 +416,24 @@ const EXERCISES: ExerciseTemplate[] = [
 
 const LOADS_BY_EXERCISE: Record<string, readonly string[]> = {
   'D1 Upper fuerza|Press banca o press inclinado': [
-    '72.5 kg (inclinado)',
     '75 kg (inclinado)',
-    '77.5 kg (inclinado)',
+    '75 kg (inclinado)',
+    '80 kg (inclinado)',
     '80 kg (inclinado)',
     '70 kg (inclinado)',
     '80 kg (inclinado)',
-    '82.5 kg (inclinado)',
-    'Top: 85 kg · back-off: 77.5–80 kg',
+    '85 kg (inclinado)',
+    'Top: 90 kg · back-off: 80 o 85 kg',
   ],
   'D1 Upper fuerza|Dominada lastrada': [
-    'BW + 7.5 kg',
-    'BW + 10 kg',
     'BW + 10 kg',
     'BW + 12.5 kg',
-    'BW + 5 kg',
     'BW + 12.5 kg',
     'BW + 15 kg',
     'BW + 12.5 kg',
+    'BW + 15 kg',
+    'BW + 17.5 kg',
+    'BW + 15 kg',
   ],
   'D1 Upper fuerza|Remo': [
     '54 kg',
@@ -439,15 +455,25 @@ const LOADS_BY_EXERCISE: Record<string, readonly string[]> = {
     '41 kg',
     '38 kg',
   ],
-  'D1 Upper fuerza|Tríceps': [
-    '25 kg en polea',
-    '27.5 kg en polea',
-    '27.5 kg en polea',
-    '30 kg en polea',
-    '25 kg en polea',
-    '30 kg en polea',
-    '32.5 kg en polea',
-    '30 kg en polea',
+  'D1 Upper fuerza|Fondos lastrados': [
+    'BW + 20 kg',
+    'BW + 20 kg',
+    'BW + 22.5 kg',
+    'BW + 22.5 kg',
+    'BW + 17.5 kg',
+    'BW + 22.5 kg',
+    'BW + 25 kg',
+    'BW + 20 kg',
+  ],
+  'D1 Upper fuerza|Extensión de tríceps sobre la cabeza': [
+    '14 kg',
+    '14 kg',
+    '16 kg',
+    '16 kg',
+    '12 kg',
+    '16 kg',
+    '18 kg',
+    '16 kg',
   ],
   'D2 Lower fuerza|Sentadilla': [
     '92.5 kg',
@@ -654,16 +680,20 @@ function buildRow(
     exercise: exercise.exercise,
     sets: isBasic
       ? week.basicSets
-      : deload
-        ? week.accessorySets
-        : evaluation
+      : exercise.fixedPrescription
+        ? exercise.sets ?? week.accessorySets
+        : deload
           ? week.accessorySets
-          : exercise.sets ?? week.accessorySets,
+          : evaluation
+            ? week.accessorySets
+            : exercise.sets ?? week.accessorySets,
     repsOrTime: isBasic
       ? week.basicReps
-      : deload || evaluation
-        ? week.accessoryReps
-        : exercise.reps ?? week.accessoryReps,
+      : exercise.fixedPrescription
+        ? exercise.reps ?? week.accessoryReps
+        : deload || evaluation
+          ? week.accessoryReps
+          : exercise.reps ?? week.accessoryReps,
     suggestedLoad,
     rir: isBasic
       ? week.basicRir

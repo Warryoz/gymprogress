@@ -87,7 +87,20 @@ describe('App', () => {
       'D4 Lower volumen',
     ]);
     expect(app.currentWorkoutDay()?.rows[0]?.exercise).toBe('Press banca o press inclinado');
-    expect(app.currentWorkoutDay()?.rows[0]?.suggestedLoad).toBe('72.5 kg (inclinado)');
+    expect(app.currentWorkoutDay()?.rows[0]?.suggestedLoad).toBe('75 kg (inclinado)');
+    expect(
+      app.currentWorkoutDay()?.rows.find((row) => row.exercise === 'Fondos lastrados'),
+    ).toMatchObject({ sets: '2', repsOrTime: '10', suggestedLoad: 'BW + 20 kg' });
+    expect(
+      app.currentWorkoutDay()?.rows.find((row) => row.exercise === 'Dominada lastrada')
+        ?.suggestedLoad,
+    ).toBe('BW + 10 kg');
+    expect(
+      app
+        .currentWorkoutDay()
+        ?.rows.find((row) => row.exercise === 'Extensión de tríceps sobre la cabeza')
+        ?.suggestedLoad,
+    ).toBe('14 kg');
     expect(
       app
         .trainingPlan()
@@ -98,7 +111,11 @@ describe('App', () => {
     app.selectPlanWeek(8);
     const mainLift = app.currentWorkoutDay()?.rows[0];
     expect(mainLift?.repsOrTime).toContain('top set');
-    expect(mainLift?.suggestedLoad).toBe('Top: 85 kg · back-off: 77.5–80 kg');
+    expect(mainLift?.suggestedLoad).toBe('Top: 90 kg · back-off: 80 o 85 kg');
+    expect(
+      app.currentWorkoutDay()?.rows.find((row) => row.exercise === 'Dominada lastrada')
+        ?.suggestedLoad,
+    ).toBe('BW + 15 kg');
     expect(localStorage.getItem('gym-progress-active-training-block')).toBe('block2');
   });
 
