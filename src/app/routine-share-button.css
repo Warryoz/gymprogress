@@ -4,13 +4,13 @@
 
 .share-button {
   display: inline-flex;
-  min-height: 48px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 0 var(--space-5, 20px);
+  padding: 0 12px;
   cursor: pointer;
   color: var(--text-primary);
   background: var(--surface-elevated);
@@ -28,8 +28,3 @@
   outline-offset: 2px;
 }
 
-@media (max-width: 720px) {
-  .share-button {
-    width: 100%;
-  }
-}

@@ -392,7 +392,7 @@ export class QuickToolsDrawer implements AfterViewInit, OnDestroy {
           typeof Notification !== 'undefined' &&
           Notification.permission === 'granted'
         ) {
-          new Notification('Gym Progress', { body: 'Tu descanso terminó.' });
+          new Notification('gerogym', { body: 'Tu descanso terminó.' });
         }
       }
     }, 1000);

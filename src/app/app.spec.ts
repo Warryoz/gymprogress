@@ -44,8 +44,8 @@ describe('App', () => {
     await app.loadSampleCsv();
     const compiled = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();
-    expect(compiled.querySelector('.brand')?.textContent).toContain('Gym Progress');
-    expect(compiled.textContent).toContain('Semana 1');
+    expect(compiled.querySelector('.brand')?.textContent).toContain('gerogym');
+    expect(compiled.querySelector('.week-tile')?.getAttribute('aria-label')).toContain('Semana 1');
   });
 
   it('offers a routine-specific sharing preview from the plan', async () => {
@@ -55,8 +55,15 @@ describe('App', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    (compiled.querySelector('.week-tile') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('#current-workout')).toBeNull();
+    expect(compiled.querySelector('app-exercise-card')).toBeNull();
+    expect(compiled.querySelector('.routine-choice.active')).toBeNull();
+    (compiled.querySelector('.routine-choice-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
     const shareButton = Array.from(compiled.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Compartir rutina'),
+      button.getAttribute('aria-label') === 'Compartir',
     );
 
     expect(shareButton).toBeTruthy();
@@ -282,4 +289,56 @@ describe('App', () => {
     expect(restoredApp.restTimerDuration()).toBe(120);
     expect(restoredApp.restTimerRemaining()).toBeGreaterThan(0);
   });
+  it('restores the next routine after finishing and keeps blocks independent', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    await app.loadTrainingPlan();
+    app.selectTrainingBlock('block2');
+    const days = app.trainingPlan()!.weeks[0].days;
+    app.startTraining();
+    for (const row of days[0].rows) app.setExerciseCompleted(row.sourceRow, true);
+    app.startTraining();
+    expect(app.trainingCompleted()).toBe(true);
+    app.selectTrainingBlock('block1');
+    app.selectTrainingBlock('block2');
+    expect(app.selectedPlanDay()).toBe(days[1].name);
+    const restored = TestBed.createComponent(App).componentInstance;
+    await restored.loadTrainingPlan();
+    expect(restored.selectedPlanDay()).toBe(days[1].name);
+    expect(JSON.parse(localStorage.getItem('gym-progress-block-history-block2')!)).toHaveLength(1);
+  });
+
+  it('resumes a running session after switching blocks', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    await app.loadTrainingPlan();
+    app.startTraining();
+    app.setExerciseCompleted(app.currentWorkoutDay()!.rows[0].sourceRow, true);
+    app.selectTrainingBlock('block2');
+    app.selectTrainingBlock('block1');
+    expect(app.trainingInProgress()).toBe(true);
+    expect(app.completedExerciseRows().size).toBe(1);
+  });
+
+  it('advances to the next week and retains the last routine at the end', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    await app.loadTrainingPlan();
+    app.selectTrainingBlock('block2');
+    const weeks = app.trainingPlan()!.weeks;
+    const finish = (week: number, day: string) => {
+      app.selectPlanWeek(week);
+      app.selectPlanDay(day);
+      app.startTraining();
+      for (const row of app.currentWorkoutDay()!.rows) app.setExerciseCompleted(row.sourceRow, true);
+      app.startTraining();
+      app.setActiveView('progress');
+      app.setActiveView('plan');
+    };
+    finish(weeks[0].week, weeks[0].days.at(-1)!.name);
+    expect(app.selectedPlanWeek()).toBe(weeks[1].week);
+    expect(app.selectedPlanDay()).toBe(weeks[1].days[0].name);
+    const last = weeks.at(-1)!;
+    finish(last.week, last.days.at(-1)!.name);
+    expect(app.selectedPlanWeek()).toBe(last.week);
+    expect(app.trainingCompleted()).toBe(true);
+  });
+
 });

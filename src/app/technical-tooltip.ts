@@ -8,8 +8,8 @@ let tooltipSequence = 0;
     <span
       class="tooltip-host"
       [class.subtle]="variant() === 'subtle'"
-      (pointerenter)="open.set(true)"
-      (pointerleave)="open.set(false)"
+      
+      
     >
       @if (!iconOnly()) {
         <span>{{ term() }}</span>
@@ -20,9 +20,9 @@ let tooltipSequence = 0;
         [attr.aria-label]="'Más información: ' + term()"
         [attr.aria-describedby]="tooltipId"
         [attr.aria-expanded]="open()"
-        (focus)="open.set(true)"
+        
         (blur)="open.set(false)"
-        (click)="open.set(true)"
+        (click)="open.set(!open())"
       >
         i
       </button>
@@ -140,6 +140,17 @@ let tooltipSequence = 0;
       }
       .tooltip::after { display: none; }
     }
+    :host { max-width: 100%; min-width: 0; }
+    .tooltip-host { max-width: 100%; }
+    .tooltip-host > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+    .info-button, .subtle .info-button { flex: 0 0 32px; width: 32px; height: 32px; cursor: pointer; }
+    .tooltip, .subtle .tooltip {
+      position: fixed; box-sizing: border-box; top: auto; bottom: 90px; left: 16px; right: 16px;
+      width: auto; max-width: 480px; margin-inline: auto; max-height: 45dvh; overflow-y: auto;
+      text-align: left; white-space: normal; z-index: 100; pointer-events: auto;
+    }
+    .tooltip::after { display: none; }
+    @media (max-width: 639px) { .info-button, .subtle .info-button { flex-basis: 44px; width: 44px; height: 44px; } }
   `,
 })
 export class TechnicalTooltip {

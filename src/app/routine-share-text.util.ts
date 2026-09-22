@@ -33,7 +33,7 @@ export function buildRoutineShareText(routine: RoutineShareData): string {
     return lines.filter(Boolean).join('\n');
   });
 
-  return [...heading, ...exercises, 'Generado con Gym Progress'].join('\n\n');
+  return [...heading, ...exercises, 'Generado con gerogym'].join('\n\n');
 }
 
 export function routinePrescription(row: TrainingPlanRow): string {

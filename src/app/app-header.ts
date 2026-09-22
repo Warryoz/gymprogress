@@ -1,15 +1,13 @@
 import { Component, HostListener, input, output, signal } from '@angular/core';
 import type { ActiveView } from './app';
-import { ThemePreference, ThemeToggle } from './theme-toggle';
 
 @Component({
   selector: 'app-header',
-  imports: [ThemeToggle],
   template: `
     <header class="app-header">
-      <a class="brand" href="#main-content" aria-label="Gym Progress, ir al contenido">
-        <span aria-hidden="true">GP</span>
-        <strong>Gym Progress</strong>
+      <a class="brand" href="#main-content" aria-label="gerogym, ir al contenido">
+        <span aria-hidden="true">GG</span>
+        <strong>gerogym</strong>
       </a>
 
       <nav class="desktop-nav" aria-label="Navegación principal">
@@ -23,46 +21,34 @@ import { ThemePreference, ThemeToggle } from './theme-toggle';
             {{ item.label }}
           </button>
         }
+        <details class="desktop-more"><summary>Más</summary><div class="more-links"><button type="button" (click)="viewChange.emit('progress'); $any($event.target).closest('details').open = false">Progreso</button><button type="button" (click)="viewChange.emit('dictionary'); $any($event.target).closest('details').open = false">Diccionario</button></div></details>
       </nav>
-
-      <app-theme-toggle
-        [preference]="themePreference()"
-        (themeChange)="themeChange.emit($event)"
-      />
+      <button class="dictionary-shortcut" type="button" [class.active]="activeView() === 'dictionary'" (click)="selectPrimaryView('dictionary')"><span aria-hidden="true">▤</span> Diccionario</button>
     </header>
 
     <nav class="mobile-nav" aria-label="Navegación móvil">
       <button
         type="button"
-        [class.active]="activeView() === 'plan' && !trainingMode()"
-        [attr.aria-current]="activeView() === 'plan' && !trainingMode() ? 'page' : null"
+        [class.active]="activeView() === 'plan'"
+        [attr.aria-current]="activeView() === 'plan' ? 'page' : null"
         (click)="selectPrimaryView('plan')"
       >
         <span aria-hidden="true">▤</span>
         Plan
       </button>
+
       <button
         type="button"
-        class="train-action"
-        [class.active]="activeView() === 'plan' && trainingMode()"
-        [attr.aria-current]="activeView() === 'plan' && trainingMode() ? 'page' : null"
-        (click)="selectTraining()"
-      >
-        <span aria-hidden="true">▶</span>
-        {{ trainLabel() }}
-      </button>
-      <button
-        type="button"
-        [class.active]="activeView() === 'progress'"
-        [attr.aria-current]="activeView() === 'progress' ? 'page' : null"
-        (click)="selectPrimaryView('progress')"
+        [class.active]="activeView() === 'calculator'"
+        [attr.aria-current]="activeView() === 'calculator' ? 'page' : null"
+        (click)="selectPrimaryView('calculator')"
       >
         <span aria-hidden="true">↗</span>
-        Progreso
+        Fuerza
       </button>
       <button
         type="button"
-        [class.active]="activeView() === 'routineSummary' || activeView() === 'calculator'"
+        [class.active]="activeView() === 'routineSummary' || activeView() === 'progress' || activeView() === 'dictionary'"
         [attr.aria-expanded]="moreOpen()"
         aria-controls="mobile-more-menu"
         (click)="moreOpen.set(!moreOpen())"
@@ -75,7 +61,8 @@ import { ThemePreference, ThemeToggle } from './theme-toggle';
     @if (moreOpen()) {
       <section id="mobile-more-menu" class="mobile-more-menu" aria-label="Más secciones">
         <button type="button" (click)="selectMoreView('routineSummary')">Resumen</button>
-        <button type="button" (click)="selectMoreView('calculator')">Fuerza</button>
+        <button type="button" (click)="selectMoreView('progress')">Progreso</button>
+        <button type="button" (click)="selectMoreView('dictionary')">Diccionario</button>
       </section>
     }
   `,
@@ -83,18 +70,13 @@ import { ThemePreference, ThemeToggle } from './theme-toggle';
 })
 export class AppHeader {
   public readonly activeView = input.required<ActiveView>();
-  public readonly themePreference = input.required<ThemePreference>();
-  public readonly trainingMode = input(false);
-  public readonly trainLabel = input('Entrenar');
   public readonly viewChange = output<ActiveView>();
-  public readonly themeChange = output<ThemePreference>();
-  public readonly train = output<void>();
   protected readonly moreOpen = signal(false);
 
   protected readonly navigation: Array<{ view: ActiveView; label: string }> = [
     { view: 'plan', label: 'Plan' },
     { view: 'routineSummary', label: 'Resumen' },
-    { view: 'progress', label: 'Progreso' },
+
     { view: 'calculator', label: 'Fuerza' },
   ];
 
@@ -108,10 +90,7 @@ export class AppHeader {
     this.viewChange.emit(view);
   }
 
-  protected selectTraining(): void {
-    this.moreOpen.set(false);
-    this.train.emit();
-  }
+
 
   @HostListener('document:keydown.escape')
   protected closeMoreMenu(): void {

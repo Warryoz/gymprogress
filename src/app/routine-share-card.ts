@@ -16,7 +16,7 @@ import {
       <header>
         <div class="brand">
           <span aria-hidden="true">GP</span>
-          <strong>Gym Progress</strong>
+          <strong>gerogym</strong>
         </div>
         <p>RUTINA DE ENTRENAMIENTO</p>
         <h2>{{ routine().title }}</h2>
@@ -61,7 +61,7 @@ import {
       <p class="page-label" data-share-page-label></p>
 
       <footer>
-        <span>Generado con <strong>Gym Progress</strong></span>
+        <span>Generado con <strong>gerogym</strong></span>
         @if (routine().generatedAt; as generatedAt) {
           <time [attr.datetime]="generatedAt.toISOString()">
             {{ generatedAt.toLocaleDateString('es-CO') }}

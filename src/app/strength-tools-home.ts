@@ -121,22 +121,6 @@ export class StrengthToolsHome {
       icon: 'Σ',
       goal: 'track',
     },
-    {
-      id: 'compareSessions',
-      title: 'Comparar sesiones',
-      description: 'Mide qué cambió entre dos entrenamientos.',
-      category: 'Seguimiento',
-      icon: '⇆',
-      goal: 'track',
-    },
-    {
-      id: 'progression',
-      title: 'Decidir la próxima carga',
-      description: 'Revisa tu progresión y la sugerencia para la siguiente sesión.',
-      category: 'Seguimiento',
-      icon: '↑',
-      goal: 'track',
-    },
   ];
 
   protected readonly filteredTools = computed(() => {

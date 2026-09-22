@@ -1,0 +1,45 @@
+ .plan-picker { max-width: 960px; margin: auto; }
+.plan-picker h1 { margin: 4px 0 28px; font-size: clamp(1.8rem, 5vw, 2.4rem); }
+.plan-picker h2 { font-size: 1rem; margin: 0 0 12px; }
+.block-calendar, .week-calendar { display: grid; gap: 12px; }
+.block-calendar { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); margin-bottom: 28px; }
+.week-calendar { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.block-tile, .week-tile { display: flex; flex-direction: column; gap: 12px; padding: 20px; text-align: left; min-width: 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text-primary); font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.block-tile:hover, .week-tile:hover { background: var(--surface-elevated); border-color: var(--accent); }
+.block-tile.selected, .week-tile.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.tile-kicker { display: flex; justify-content: space-between; gap: 8px; width: 100%; color: var(--text-secondary); font-size: .75rem; }
+.tile-kicker > span { color: var(--accent); }
+.block-tile > strong { font-size: 1.1rem; line-height: 1.4; }
+.week-number { font-size: 2rem; line-height: 1; color: var(--accent); }
+.week-tile > strong:not(.week-number) { font-size: .9rem; }
+.block-tile small, .week-tile small { color: var(--text-secondary); margin-top: auto; }
+.calendar-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.calendar-heading > span { font-size: .8rem; color: var(--text-secondary); }
+.change-plan { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text-secondary); text-align: left; font: inherit; cursor: pointer; }
+.change-plan span { color: #b6a3ff; }
+.change-plan:hover span { color: #d4c9ff; }
+.routine-list-heading { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+.routine-list-heading h2 { margin: 0; font-size: .85rem; font-weight: 650; color: var(--text-secondary); }
+.block-tile:focus-visible, .week-tile:focus-visible, .change-plan:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media(max-width: 600px) { .week-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .block-tile, .week-tile { padding: 16px; } }
+
+.routine-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.routine-title-row .eyebrow { margin: 0; }
+#strength-workspace { margin-bottom: 24px; }
+
+.program-section-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.program-section-title h2 { margin: 0; }
+.plan-location { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
+.plan-location > strong { font-size: .9rem; }
+#main-content { scroll-margin-top: 90px; }
+.plan-location .change-plan { width: auto; border: 0; font-size: .8rem; }
+.routine-selector { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 8px; margin-bottom: 16px; }
+.routine-choice { display: flex; align-items: center; min-width: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.routine-choice.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); box-shadow: inset 3px 0 var(--accent); }
+.routine-choice-button { flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: .85rem; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.routine-title-row h1 { flex: 1; min-width: 0; margin: 0; }
+.routine-exercises { min-width: 0; }
+.routine-choice.active .routine-choice-button { color: var(--text-primary); font-weight: 750; }
+.routine-choice-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 8px; }
+.planner-layout { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 600px) { .routine-selector { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

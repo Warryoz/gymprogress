@@ -1,3 +1,4 @@
+import { TrainingDictionary } from './training-dictionary';
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { AppHeader } from './app-header';
@@ -21,7 +22,6 @@ import {
   SecondaryStrengthTool,
   SecondaryStrengthToolId,
 } from './secondary-strength-tool';
-import { ThemePreference } from './theme-toggle';
 import type { QuickLastSet } from './quick-tools-drawer';
 import { parseTrainingNotation } from './quick-strength-tools';
 import { buildBlockTwoPlan } from './block-two-plan';
@@ -204,7 +204,7 @@ const DEFAULT_PLATE_INVENTORIES: Record<WeightUnit, PlateInventoryItem[]> = {
   ],
 };
 
-export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator';
+export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator' | 'dictionary';
 
 @Component({
   selector: 'app-root',
@@ -215,6 +215,7 @@ export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator';
     RoutineShareButton,
     WorkoutSessionBar,
     TechnicalTooltip,
+    TrainingDictionary,
     StrengthToolsHome,
     CalculatorHeader,
     CalculatorInstructions,
@@ -222,11 +223,10 @@ export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator';
     SecondaryStrengthTool,
   ],
   templateUrl: './app.html',
-  styleUrl: './app.css',
+  styleUrls: ['./app.css', './plan-picker.css'],
 })
 export class App implements OnInit, OnDestroy {
   public readonly activeView = signal<ActiveView>('plan');
-  public readonly themePreference = signal<ThemePreference>('dark');
   public readonly csvText = signal('');
   public readonly trainingLog = signal<ParsedTrainingLog | null>(null);
   public readonly trainingPlans = signal<Partial<Record<TrainingBlockId, ParsedTrainingPlan>>>({});
@@ -254,6 +254,23 @@ export class App implements OnInit, OnDestroy {
   public readonly selectedSummaryWeek = signal<number | 'all'>('all');
   public readonly selectedSummaryRoutine = signal('all');
   public readonly selectedPlanDay = signal('all');
+  public readonly planPickerOpen = signal(true);
+  public readonly routineChosen = signal(true);
+
+  public choosePlanWeek(week: number): void {
+    if (week !== this.selectedPlanWeek()) this.selectPlanWeek(week);
+    this.routineChosen.set(false);
+    this.planPickerOpen.set(false);
+    this.planMode.set('overview');
+    setTimeout(() => document.querySelector('#main-content')?.scrollIntoView({ block: 'start' }), 0);
+  }
+
+  public showPlanPicker(): void {
+    this.planPickerOpen.set(true);
+    this.planMode.set('overview');
+    setTimeout(() => document.querySelector('#main-content')?.scrollIntoView({ block: 'start' }), 0);
+  }
+
   public readonly planMode = signal<'overview' | 'workout'>('overview');
   public readonly weekOverviewOpen = signal(false);
   public readonly trainingInProgress = signal(false);
@@ -402,16 +419,9 @@ export class App implements OnInit, OnDestroy {
     };
   });
 
-  private readonly systemThemeQuery =
-    typeof window === 'undefined' || typeof window.matchMedia !== 'function'
-      ? null
-      : window.matchMedia('(prefers-color-scheme: dark)');
-  private readonly systemThemeListener = (): void => this.applyTheme();
   private clockInterval: ReturnType<typeof setInterval> | null = null;
 
   public constructor() {
-    const savedTheme = this.readStoredTheme();
-    this.themePreference.set(savedTheme ?? 'dark');
     this.activeTrainingBlock.set(this.readStoredTrainingBlock() ?? 'block1');
     this.loadStrengthSettings();
     this.applyTheme();
@@ -1282,7 +1292,6 @@ export class App implements OnInit, OnDestroy {
   );
 
   public async ngOnInit(): Promise<void> {
-    this.systemThemeQuery?.addEventListener('change', this.systemThemeListener);
     this.clockInterval = setInterval(() => {
       this.clockNow.set(Date.now());
       if (
@@ -1303,7 +1312,6 @@ export class App implements OnInit, OnDestroy {
   }
 
   public ngOnDestroy(): void {
-    this.systemThemeQuery?.removeEventListener('change', this.systemThemeListener);
     if (this.clockInterval !== null) {
       clearInterval(this.clockInterval);
     }
@@ -1312,6 +1320,7 @@ export class App implements OnInit, OnDestroy {
   public setActiveView(view: ActiveView): void {
     this.activeView.set(view);
     if (view === 'plan') {
+      if (this.trainingCompleted() && this.trainingPlan()) this.restoreBlockProgress(this.trainingPlan()!);
       this.planMode.set('overview');
       setTimeout(
         () =>
@@ -1321,24 +1330,15 @@ export class App implements OnInit, OnDestroy {
           }),
         0,
       );
+    } else if (view === 'dictionary') {
+      setTimeout(() => document.querySelector('#main-content')?.scrollIntoView({ block: 'start' }), 0);
     } else if (view === 'calculator') {
       this.scrollStrengthIntoView();
     }
   }
 
-  public setThemePreference(preference: ThemePreference): void {
-    this.themePreference.set(preference);
-
-    try {
-      localStorage.setItem('gym-progress-theme', preference);
-    } catch {
-      // Theme still works when storage is unavailable.
-    }
-
-    this.applyTheme();
-  }
-
   public startTraining(): void {
+    this.planPickerOpen.set(false);
     this.activeView.set('plan');
     this.planMode.set('workout');
     const day = this.currentWorkoutDay();
@@ -1350,6 +1350,7 @@ export class App implements OnInit, OnDestroy {
     if (this.trainingInProgress() && this.currentWorkoutProgress().allCompleted) {
       this.trainingInProgress.set(false);
       this.trainingCompleted.set(true);
+      this.saveBlockCompletion();
       this.planMode.set('overview');
       this.dismissRestTimer();
       this.persistWorkoutSession();
@@ -1482,6 +1483,8 @@ export class App implements OnInit, OnDestroy {
   }
 
   public dayStatus(day: PlanDay): string {
+    if (day.name === this.selectedPlanDay() && this.trainingInProgress()) return 'En curso';
+    if (this.finishedRoutines().some(item => item?.week === this.selectedPlanWeek() && item?.day === day.name)) return 'Completada';
     if (day.name === this.selectedPlanDay()) {
       return this.trainingInProgress() ? 'En curso' : 'Actual';
     }
@@ -2002,6 +2005,7 @@ export class App implements OnInit, OnDestroy {
 
   public selectPlanDay(day: string): void {
     this.selectedPlanDay.set(day);
+    this.routineChosen.set(true);
   }
 
   public selectExercise(key: string): void {
@@ -2137,15 +2141,6 @@ export class App implements OnInit, OnDestroy {
     return Number.isFinite(value) ? value : fallback;
   }
 
-  private readStoredTheme(): ThemePreference | null {
-    try {
-      const value = localStorage.getItem('gym-progress-theme');
-      return value === 'dark' || value === 'light' || value === 'system' ? value : null;
-    } catch {
-      return null;
-    }
-  }
-
   private readStoredTrainingBlock(): TrainingBlockId | null {
     try {
       const value = localStorage.getItem(ACTIVE_TRAINING_BLOCK_STORAGE_KEY);
@@ -2177,7 +2172,10 @@ export class App implements OnInit, OnDestroy {
     this.trainingCompleted.set(false);
     this.completedExerciseRows.set(new Set<number>());
     this.workoutStartedAt.set(null);
-    this.dismissRestTimer();
+    this.restTimerEndsAt.set(null);
+    this.restTimerPausedSeconds.set(0);
+    this.restTimerDuration.set(0);
+    this.restTimerFinished.set(false);
   }
 
   private startRestTimer(rest: string): void {
@@ -2242,6 +2240,7 @@ export class App implements OnInit, OnDestroy {
   }
 
   private restoreWorkoutSession(plan: ParsedTrainingPlan): void {
+    this.restoreBlockProgress(plan);
     try {
       const raw =
         localStorage.getItem(this.workoutSessionStorageKey()) ??
@@ -2274,6 +2273,7 @@ export class App implements OnInit, OnDestroy {
       this.trainingInProgress.set(true);
       this.trainingCompleted.set(false);
       this.planMode.set('workout');
+      this.planPickerOpen.set(false);
 
       const duration = Math.max(0, Number(stored.restTimerDuration) || 0);
       const paused = Math.max(0, Number(stored.restTimerPausedSeconds) || 0);
@@ -2293,6 +2293,39 @@ export class App implements OnInit, OnDestroy {
     } catch {
       // Ignore malformed session data and start with a clean plan.
     }
+  }
+
+  private readonly finishedRoutines = signal<Array<{week: number; day: string}>>([]);
+
+  private saveBlockCompletion(): void {
+    try {
+      const key = 'gym-progress-block-history-' + this.activeTrainingBlock();
+      const raw = localStorage.getItem(key);
+      const history: Array<{week: number; day: string}> = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(history)) return;
+      history.push({ week: this.selectedPlanWeek(), day: this.selectedPlanDay() });
+      localStorage.setItem(key, JSON.stringify(history));
+      this.finishedRoutines.set(history);
+    } catch { /* Keep the current session usable if storage is unavailable. */ }
+  }
+
+  private restoreBlockProgress(plan: ParsedTrainingPlan): void {
+    this.finishedRoutines.set([]);
+    try {
+      const history = JSON.parse(localStorage.getItem('gym-progress-block-history-' + this.activeTrainingBlock()) ?? '[]');
+      this.finishedRoutines.set(Array.isArray(history) ? history : []);
+      if (!Array.isArray(history) || !history.length) return;
+      const last = history[history.length - 1];
+      const days = plan.weeks.flatMap(week => week.days.map(day => ({ week: week.week, day })));
+      const index = days.findIndex(item => item.week === last.week && item.day.name === last.day);
+      if (index < 0) return;
+      const next = days[index + 1];
+      const target = next ?? days[index];
+      this.selectedPlanWeek.set(target.week);
+      this.selectedPlanDay.set(target.day.name);
+      this.trainingCompleted.set(!next);
+      this.completedExerciseRows.set(new Set(next ? [] : target.day.rows.map(row => row.sourceRow)));
+    } catch { /* Ignore invalid saved progress. */ }
   }
 
   private workoutSessionStorageKey(block = this.activeTrainingBlock()): string {
@@ -2365,11 +2398,8 @@ export class App implements OnInit, OnDestroy {
       return;
     }
 
-    const preference = this.themePreference();
-    const resolved =
-      preference === 'system' ? (this.systemThemeQuery?.matches ? 'dark' : 'light') : preference;
-    document.documentElement.dataset['theme'] = resolved;
-    document.documentElement.style.colorScheme = resolved;
+    document.documentElement.dataset['theme'] = 'dark';
+    document.documentElement.style.colorScheme = 'dark';
   }
 
   private loadQuickObjective(key: string): void {
@@ -2422,7 +2452,27 @@ export class App implements OnInit, OnDestroy {
   }
 
   public shortPhase(value: string): string {
-    return value.split(':')[0]?.trim() || value;
+    const phase = value.toLocaleLowerCase();
+    const labels: Array<[string, string]> = [
+      ['vuelta del deload', 'Retomar fuerza'],
+      ['base + volumen', 'Volumen suave'],
+      ['base/analgesia', 'Base'],
+      ['volumen alto', 'Más volumen'],
+      ['carga moderada', 'Carga moderada'],
+      ['deload', 'Descarga'],
+      ['reacumulación', 'Retomar cargas'],
+      ['pesada submáxima', 'Fuerza'],
+      ['consolidación/test', 'Evaluación'],
+      ['adaptación', 'Adaptación'],
+      ['pequeño aumento', 'Subir carga'],
+      ['aumento de intensidad', 'Más intensidad'],
+      ['consolidación de cargas', 'Consolidación'],
+      ['fuerza submáxima', 'Fuerza'],
+      ['evaluación', 'Evaluación'],
+    ];
+    return labels.find(([key]) => phase.includes(key))?.[1]
+      ?? value.split(/[.:·]/)[0]?.trim()
+      ?? value;
   }
 
   private hasWeightedLoad(value: string): boolean {

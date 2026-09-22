@@ -212,3 +212,15 @@ h3 {
     row-gap: 7px;
   }
 }
+
+:host { min-width: 0; }
+*, *::before, *::after { box-sizing: border-box; }
+.exercise-card, .exercise-main, .exercise-title { min-width: 0; }
+h3, .block-label, .prescription, .complete-action { overflow-wrap: anywhere; }
+.prescription > * { min-width: 0; max-width: 100%; }
+@media (max-width: 480px) {
+ .exercise-card { padding: 14px; }
+ .prescription { width: 100%; gap: 8px; }
+ .prescription > * { border-left: 0; margin-left: 0; padding-left: 0; }
+ .complete-action { width: 100%; }
+}

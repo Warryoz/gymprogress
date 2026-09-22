@@ -67,7 +67,7 @@ describe('routine share text', () => {
     expect(text).toContain('1. Isométrico empuje mid-range');
     expect(text).toContain('3-5 × 30-45 s · 40-60% esfuerzo · Dolor máximo: 3/10');
     expect(text).toContain('Descanso: 2-3 min');
-    expect(text).toContain('Generado con Gym Progress');
+    expect(text).toContain('Generado con gerogym');
   });
 
   it('formats numeric loads and totals the lower prescribed set count', () => {

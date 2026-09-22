@@ -22,23 +22,10 @@
   --danger: #ef776d;
 }
 
-:root[data-theme='light'] {
-  --background: #f4f6f5;
-  --surface: #ffffff;
-  --surface-elevated: #f7f9f8;
-  --surface-muted: #edf1ef;
-  --border: #dfe5e2;
-  --text-primary: #172026;
-  --text-secondary: #657077;
-  --accent: #5d46b1;
-  --accent-contrast: #ffffff;
-  --success: #0f8a64;
-  --warning: #c47a20;
-  --danger: #b3483e;
-}
+
 
 html {
-  min-width: 320px;
+  min-width: 0;
   background: var(--background);
 }
 
