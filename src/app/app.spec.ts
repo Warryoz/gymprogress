@@ -243,6 +243,14 @@ describe('App', () => {
     app.startTraining();
     expect(app.trainingInProgress()).toBe(false);
     expect(app.trainingCompleted()).toBe(true);
+    expect(app.workoutReportOpen()).toBe(true);
+    expect(app.workoutReport()).toMatchObject({
+      completionRate: 100,
+      exercisesCompleted: 2,
+      setsCompleted: 7,
+    });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-workout-report-modal')).toBeTruthy();
   });
 
   it('starts a prescription-aware rest timer after completing an exercise', async () => {

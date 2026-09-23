@@ -7,6 +7,8 @@ import { plannedSetCount } from './exercise-set-progress';
 import { RoutineShareButton } from './routine-share-button';
 import { RoutineShareData } from './routine-share-text.util';
 import { WorkoutSessionBar } from './workout-session-bar';
+import { WorkoutReportModal } from './workout-report-modal';
+import { WorkoutReportData, buildWorkoutReport } from './workout-report';
 import { TechnicalTooltip } from './technical-tooltip';
 import {
   StrengthToolsHome,
@@ -216,6 +218,7 @@ export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator' |
     ExerciseCard,
     RoutineShareButton,
     WorkoutSessionBar,
+    WorkoutReportModal,
     TechnicalTooltip,
     TrainingDictionary,
     StrengthToolsHome,
@@ -277,6 +280,8 @@ export class App implements OnInit, OnDestroy {
   public readonly weekOverviewOpen = signal(false);
   public readonly trainingInProgress = signal(false);
   public readonly trainingCompleted = signal(false);
+  public readonly workoutReportOpen = signal(false);
+  public readonly workoutCompletedAt = signal<number | null>(null);
   public readonly completedExerciseRows = signal<ReadonlySet<number>>(new Set<number>());
   public readonly completedSetsByRow = signal<ReadonlyMap<number, ReadonlySet<number>>>(
     new Map<number, ReadonlySet<number>>(),
@@ -470,6 +475,26 @@ export class App implements OnInit, OnDestroy {
       rows: day.rows,
       generatedAt: new Date(),
     };
+  });
+
+  public readonly workoutReport = computed<WorkoutReportData | null>(() => {
+    const week = this.currentPlanWeek();
+    const day = this.currentWorkoutDay();
+    const completedAt = this.workoutCompletedAt();
+    const startedAt = this.workoutStartedAt();
+    if (!week || !day || completedAt === null || startedAt === null) return null;
+
+    return buildWorkoutReport({
+      title: day.name,
+      block: this.activeTrainingBlockDetails().label,
+      week: week.week,
+      phase: day.phase || week.phase,
+      completedAt: new Date(completedAt),
+      durationSeconds: Math.max(0, Math.floor((completedAt - startedAt) / 1000)),
+      rows: day.rows,
+      completedRows: this.completedExerciseRows(),
+      completedSetsByRow: this.completedSetsByRow(),
+    });
   });
 
   public readonly currentPlanWeekIndex = computed(() =>
@@ -1353,8 +1378,12 @@ export class App implements OnInit, OnDestroy {
     }
 
     if (this.trainingInProgress() && this.currentWorkoutProgress().allCompleted) {
+      const completedAt = Date.now();
+      this.clockNow.set(completedAt);
+      this.workoutCompletedAt.set(completedAt);
       this.trainingInProgress.set(false);
       this.trainingCompleted.set(true);
+      this.workoutReportOpen.set(true);
       this.saveBlockCompletion();
       this.planMode.set('overview');
       this.dismissRestTimer();
@@ -1375,6 +1404,8 @@ export class App implements OnInit, OnDestroy {
         ),
       );
       this.trainingCompleted.set(false);
+      this.workoutCompletedAt.set(null);
+      this.workoutReportOpen.set(false);
       this.workoutStartedAt.set(Date.now());
       this.dismissRestTimer();
     }
@@ -2045,6 +2076,8 @@ export class App implements OnInit, OnDestroy {
     this.weekOverviewOpen.set(false);
     this.trainingInProgress.set(false);
     this.trainingCompleted.set(false);
+    this.workoutReportOpen.set(false);
+    this.workoutCompletedAt.set(null);
     this.workoutStartedAt.set(null);
     this.dismissRestTimer();
     this.persistWorkoutSession();
@@ -2225,6 +2258,8 @@ export class App implements OnInit, OnDestroy {
     this.planMode.set('overview');
     this.trainingInProgress.set(false);
     this.trainingCompleted.set(false);
+    this.workoutReportOpen.set(false);
+    this.workoutCompletedAt.set(null);
     this.completedExerciseRows.set(new Set<number>());
     this.completedSetsByRow.set(new Map<number, ReadonlySet<number>>());
     this.workoutStartedAt.set(null);

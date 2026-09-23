@@ -88,7 +88,12 @@
                 </div>
               </div>
             } @else if (trainingCompleted()) {
-              <p class="workout-complete-message">✓ Entrenamiento completado</p>
+              <div class="workout-complete-row">
+                <p class="workout-complete-message">✓ Entrenamiento completado</p>
+                @if (workoutReport()) {
+                  <button type="button" class="report-action" (click)="workoutReportOpen.set(true)">Ver resumen</button>
+                }
+              </div>
             }
           </div>
           @if (!trainingCompleted()) {
@@ -100,6 +105,10 @@
           </div>
           }
         </section>
+
+        @if (workoutReportOpen() && workoutReport(); as report) {
+          <app-workout-report-modal [report]="report" (closed)="workoutReportOpen.set(false)" />
+        }
 
         @if (trainingInProgress() && planMode() === 'workout') {
           <app-workout-session-bar

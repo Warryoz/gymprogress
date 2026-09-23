@@ -390,3 +390,8 @@ body {
     display: none;
   }
 }
+app-root .workout-complete-row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);margin-top:var(--space-3)}
+app-root .workout-complete-row .workout-complete-message{margin:0}
+app-root .report-action{min-height:36px;border:1px solid color-mix(in srgb,var(--success) 48%,var(--border));border-radius:999px;padding:0 13px;cursor:pointer;color:var(--success);background:color-mix(in srgb,var(--success) 9%,var(--surface));font:inherit;font-size:.78rem;font-weight:850}
+app-root .report-action:hover{background:color-mix(in srgb,var(--success) 15%,var(--surface))}
+app-root .report-action:focus-visible{outline:3px solid color-mix(in srgb,var(--success) 28%,transparent);outline-offset:2px}
