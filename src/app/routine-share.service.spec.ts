@@ -41,4 +41,24 @@ describe('RoutineShareService', () => {
       staging.remove();
     }
   });
+
+  it('supports a compact high-density export for phone-sized achievements', async () => {
+    const card = document.createElement('article');
+    card.textContent = 'Workout complete';
+    document.body.appendChild(card);
+
+    try {
+      await new RoutineShareService().generatePngs(card, 'Workout', {
+        width: 540,
+        pixelRatio: 2,
+      });
+      const captured = mockedToBlob.mock.calls[0][0] as HTMLElement;
+      const options = mockedToBlob.mock.calls[0][1];
+
+      expect(captured.style.width).toBe('540px');
+      expect(options).toMatchObject({ width: 540, pixelRatio: 2 });
+    } finally {
+      card.remove();
+    }
+  });
 });

@@ -155,7 +155,10 @@ export class WorkoutReportModal implements AfterViewInit, OnDestroy {
       const element = this.exportCard()?.nativeElement.querySelector<HTMLElement>('[data-workout-report-export]');
       if (!element) return Promise.reject(new Error('El reporte todavía no está listo.'));
       this.generatedImages = this.shareService
-        .generatePngs(element, `${this.report().title}-logro`)
+        .generatePngs(element, `${this.report().title}-logro`, {
+          width: 540,
+          pixelRatio: 2,
+        })
         .catch((error: unknown) => {
           this.generatedImages = null;
           throw error;

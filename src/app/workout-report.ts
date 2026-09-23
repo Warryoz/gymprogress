@@ -92,7 +92,6 @@ export function buildWorkoutReportText(report: WorkoutReportData): string {
     '',
     `✓ ${report.exercisesCompleted}/${report.totalExercises} ejercicios`,
     `✓ ${report.setsCompleted} series`,
-    `⏱ ${formatWorkoutDuration(report.durationSeconds)}`,
   ];
 
   if (report.estimatedVolumeKg > 0) {

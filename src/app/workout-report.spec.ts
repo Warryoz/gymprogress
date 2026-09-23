@@ -46,6 +46,7 @@ describe('workout report', () => {
     });
     expect(formatWorkoutDuration(report.durationSeconds)).toBe('1 h 5 min');
     expect(buildWorkoutReportText(report)).toContain('2/2 ejercicios');
+    expect(buildWorkoutReportText(report)).not.toContain('1 h 5 min');
   });
 
   it('excludes timed work and non-numeric loads from volume', () => {

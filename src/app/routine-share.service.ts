@@ -6,6 +6,11 @@ export interface RoutineShareImage {
   filename: string;
 }
 
+export interface RoutineShareRenderOptions {
+  width?: number;
+  pixelRatio?: number;
+}
+
 const EXPORT_WIDTH = 1080;
 const MAX_PAGE_HEIGHT = 7000;
 
@@ -14,18 +19,28 @@ export class RoutineShareService {
   public async generatePngs(
     element: HTMLElement,
     routineTitle: string,
+    options: RoutineShareRenderOptions = {},
   ): Promise<RoutineShareImage[]> {
+    const width = options.width ?? EXPORT_WIDTH;
+    const pixelRatio = options.pixelRatio ?? 2;
     await this.waitForFonts();
     const captureSource = element.cloneNode(true) as HTMLElement;
-    this.prepareClone(captureSource);
+    this.prepareClone(captureSource, width);
     document.body.appendChild(captureSource);
 
     try {
       if (captureSource.scrollHeight <= MAX_PAGE_HEIGHT) {
-        return [await this.renderElement(captureSource, this.filename(routineTitle))];
+        return [
+          await this.renderElement(
+            captureSource,
+            this.filename(routineTitle),
+            width,
+            pixelRatio,
+          ),
+        ];
       }
 
-      return this.renderPaged(captureSource, routineTitle);
+      return this.renderPaged(captureSource, routineTitle, width, pixelRatio);
     } finally {
       captureSource.remove();
     }
@@ -108,13 +123,15 @@ export class RoutineShareService {
   private async renderPaged(
     element: HTMLElement,
     routineTitle: string,
+    width: number,
+    pixelRatio: number,
   ): Promise<RoutineShareImage[]> {
     const exerciseNodes = Array.from(
       element.querySelectorAll<HTMLElement>('[data-share-exercise]'),
     );
 
     if (!exerciseNodes.length) {
-      return [await this.renderElement(element, this.filename(routineTitle))];
+      return [await this.renderElement(element, this.filename(routineTitle), width, pixelRatio)];
     }
 
     const groups: number[][] = [];
@@ -160,7 +177,7 @@ export class RoutineShareService {
         pageLabel.style.display = 'block';
       }
 
-      this.prepareClone(clone);
+      this.prepareClone(clone, width);
       document.body.appendChild(clone);
 
       try {
@@ -168,6 +185,8 @@ export class RoutineShareService {
           await this.renderElement(
             clone,
             this.filename(routineTitle, pageIndex + 1, groups.length),
+            width,
+            pixelRatio,
           ),
         );
       } finally {
@@ -178,16 +197,21 @@ export class RoutineShareService {
     return images;
   }
 
-  private async renderElement(element: HTMLElement, filename: string): Promise<RoutineShareImage> {
+  private async renderElement(
+    element: HTMLElement,
+    filename: string,
+    width: number,
+    pixelRatio: number,
+  ): Promise<RoutineShareImage> {
     const { toBlob } = await import('html-to-image');
     const height = Math.ceil(element.scrollHeight);
     const blob = await toBlob(element, {
       backgroundColor: '#0f1115',
       cacheBust: true,
       height,
-      pixelRatio: 2,
+      pixelRatio,
       skipAutoScale: false,
-      width: EXPORT_WIDTH,
+      width,
     });
 
     if (!blob) {
@@ -201,7 +225,7 @@ export class RoutineShareService {
     };
   }
 
-  private prepareClone(clone: HTMLElement): void {
+  private prepareClone(clone: HTMLElement, width: number): void {
     Object.assign(clone.style, {
       height: 'auto',
       left: '0',
@@ -210,7 +234,7 @@ export class RoutineShareService {
       pointerEvents: 'none',
       position: 'fixed',
       top: '0',
-      width: `${EXPORT_WIDTH}px`,
+      width: `${width}px`,
       zIndex: '-2147483647',
     });
   }

@@ -2,7 +2,6 @@ import { Component, input } from '@angular/core';
 import {
   WorkoutReportData,
   formatReportNumber,
-  formatWorkoutDuration,
 } from './workout-report';
 
 @Component({
@@ -28,7 +27,6 @@ import {
       <section class="metrics" aria-label="Métricas del entrenamiento">
         <div><strong>{{ report().exercisesCompleted }}</strong><span>Ejercicios</span></div>
         <div><strong>{{ report().setsCompleted }}</strong><span>Series</span></div>
-        <div><strong>{{ duration(report().durationSeconds) }}</strong><span>Duración</span></div>
         <div><strong>{{ report().completionRate }}%</strong><span>Completado</span></div>
       </section>
 
@@ -39,12 +37,11 @@ import {
       <footer><span>Disciplina acumulada. Progreso en marcha.</span><strong>gerogym</strong></footer>
     </article>
   `,
-  styleUrl: './workout-report-achievement.css',
+  styleUrl: './workout-report-card.css',
 })
 export class WorkoutReportCard {
   public readonly report = input.required<WorkoutReportData>();
   public readonly exportMode = input(false);
-  protected readonly duration = formatWorkoutDuration;
 
   protected primaryMetricLabel(): string {
     return this.report().estimatedVolumeKg > 0 ? 'VOLUMEN ESTIMADO' : 'SERIES COMPLETADAS';
