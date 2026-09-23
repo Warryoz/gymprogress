@@ -32,7 +32,7 @@ describe('resolveBlockTwoRepdbExercise', () => {
       row('Press banca o press inclinado', '75 kg (inclinado)'),
     );
 
-    expect(flat?.id).toBe('bench-press');
+    expect(flat?.id).toBe('wide-grip-bench-press');
     expect(incline?.id).toBe('incline-bench-press');
     expect(flat?.kind).toBe('animated');
     expect(flat?.primaryMuscles).toContain('Pectoral mayor');
@@ -51,12 +51,18 @@ describe('resolveBlockTwoRepdbExercise', () => {
   it('uses the configured Block 2 exercise variants', () => {
     expect(resolveBlockTwoRepdbExercise(row('Remo', '54 kg'))?.id).toBe('barbell-row');
     expect(resolveBlockTwoRepdbExercise(row('Press compatible con hombro', '36 kg'))?.id).toBe(
-      'ohp',
+      'machine-shoulder-press',
     );
     expect(resolveBlockTwoRepdbExercise(row('Curl femoral', '45 kg'))?.id).toBe(
       'seated-leg-curl',
     );
     expect(resolveBlockTwoRepdbExercise(row('Bíceps', '10 kg por mano'))?.id).toBe('hammer-curl');
+    expect(resolveBlockTwoRepdbExercise(row('Dominadas o jalón', 'jalón 55 kg'))?.id).toBe(
+      'weighted-pull-up',
+    );
+    expect(resolveBlockTwoRepdbExercise(row('Hack squat o prensa', '95 kg en hack'))?.id).toBe(
+      'leg-press',
+    );
   });
 
   it('does not map rehabilitation or unresolved generic exercises', () => {

@@ -29,7 +29,10 @@ interface RepdbMuscleGroups {
 
 const REPDB_MUSCLES: Readonly<Record<string, RepdbMuscleGroups>> = {
   'incline-bench-press': { primary: ['Pectoral mayor'], secondary: ['Deltoide anterior', 'Tríceps'] },
-  'bench-press': { primary: ['Pectoral mayor'], secondary: ['Deltoide anterior', 'Tríceps'] },
+  'wide-grip-bench-press': {
+    primary: ['Pectoral mayor'],
+    secondary: ['Deltoide anterior', 'Tríceps'],
+  },
   'weighted-pull-up': {
     primary: ['Dorsal ancho'],
     secondary: ['Bíceps', 'Deltoide posterior', 'Romboides', 'Trapecio'],
@@ -38,7 +41,7 @@ const REPDB_MUSCLES: Readonly<Record<string, RepdbMuscleGroups>> = {
     primary: ['Dorsal ancho', 'Romboides'],
     secondary: ['Bíceps', 'Deltoide posterior'],
   },
-  ohp: {
+  'machine-shoulder-press': {
     primary: ['Deltoide anterior', 'Deltoide lateral'],
     secondary: ['Trapecio', 'Tríceps'],
   },
@@ -82,11 +85,11 @@ const BLOCK_TWO_REPDB_MAPPING: Readonly<Record<string, MappingResolver>> = {
     includesAny(row, 'inclinado')
       ? animated('incline-bench-press', 'Press en banco inclinado con barra')
       : includesAny(row, 'plano')
-        ? animated('bench-press', 'Press de banca con barra')
+        ? animated('wide-grip-bench-press', 'Press de banca con agarre ancho')
         : null,
   'Dominada lastrada': animated('weighted-pull-up', 'Dominada lastrada'),
   Remo: animated('barbell-row', 'Remo con barra inclinado'),
-  'Press compatible con hombro': animated('ohp', 'Press militar con barra'),
+  'Press compatible con hombro': animated('machine-shoulder-press', 'Press de hombros en máquina'),
   'Fondos lastrados': animated('weighted-dips', 'Fondos lastrados'),
   'Extensión de tríceps sobre la cabeza': animated(
     'ez-bar-overhead-extension',
@@ -98,16 +101,11 @@ const BLOCK_TWO_REPDB_MAPPING: Readonly<Record<string, MappingResolver>> = {
   'Extensión de cuádriceps': animated('leg-extension', 'Extensión de piernas'),
   'Variante secundaria de banca': (row) =>
     includesAny(row, 'plano')
-      ? animated('bench-press', 'Press de banca con barra')
+      ? animated('wide-grip-bench-press', 'Press de banca con agarre ancho')
       : includesAny(row, 'inclinado')
         ? animated('incline-bench-press', 'Press en banco inclinado con barra')
         : null,
-  'Dominadas o jalón': (row) =>
-    row.suggestedLoad.trim().toLowerCase().startsWith('bw')
-      ? animated('pull-up', 'Dominada')
-      : includesAny(row, 'jalón', 'jalon')
-        ? animated('lat-pulldown', 'Jalón al pecho')
-        : null,
+  'Dominadas o jalón': animated('weighted-pull-up', 'Dominada lastrada'),
   'Elevaciones laterales': animated('lateral-raise', 'Elevación lateral con mancuernas'),
   Bíceps: (row) =>
     includesAny(row, 'por mano', 'mancuerna')
@@ -121,12 +119,7 @@ const BLOCK_TWO_REPDB_MAPPING: Readonly<Record<string, MappingResolver>> = {
     includesAny(row, 'pausada', 'barra')
       ? animated('squat', 'Sentadilla trasera con barra')
       : null,
-  'Hack squat o prensa': (row) =>
-    includesAny(row, 'hack')
-      ? animated('hack-squat', 'Hack squat')
-      : includesAny(row, 'prensa')
-        ? animated('leg-press', 'Prensa de piernas')
-        : null,
+  'Hack squat o prensa': animated('leg-press', 'Prensa de piernas'),
   Glúteo: (row) =>
     includesAny(row, 'hip thrust') ? animated('hip-thrust', 'Hip thrust con barra') : null,
 };

@@ -25,7 +25,7 @@
                 "input": "public"
               },
               {
-                "glob": "{barbell-row,bench-press,hack-squat,hammer-curl,hip-thrust,incline-bench-press,lat-pulldown,lateral-raise,leg-extension,leg-press,ohp,pull-up,romanian-deadlift,seated-leg-curl,squat,tricep-pushdown,weighted-dips,weighted-pull-up,ez-bar-overhead-extension}-{start,peak}.webp",
+                "glob": "{barbell-row,hammer-curl,hip-thrust,incline-bench-press,lateral-raise,leg-extension,leg-press,machine-shoulder-press,romanian-deadlift,seated-leg-curl,squat,tricep-pushdown,weighted-dips,weighted-pull-up,wide-grip-bench-press,ez-bar-overhead-extension}-{start,peak}.webp",
                 "input": "node_modules/@repdb/exercises/images/flat",
                 "output": "repdb/images/flat"
               }
