@@ -270,6 +270,60 @@ describe('App', () => {
     });
   });
 
+  it('keeps set tracking collapsed and completes the exercise after its final set', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await app.loadTrainingPlan();
+    app.startTraining();
+    fixture.detectChanges();
+
+    const firstRow = app.currentWorkoutDay()!.rows[0];
+    const compiled = fixture.nativeElement as HTMLElement;
+    const firstCard = compiled.querySelector(`#exercise-${firstRow.sourceRow}`)!;
+    const tracker = firstCard.querySelector('.set-tracker-toggle') as HTMLButtonElement;
+
+    expect(tracker.getAttribute('aria-expanded')).toBe('false');
+    expect(firstCard.querySelector('.set-list')).toBeNull();
+
+    tracker.click();
+    fixture.detectChanges();
+    expect(firstCard.querySelectorAll('.set-row')).toHaveLength(4);
+    expect(firstCard.querySelector('.set-list')?.textContent).not.toContain('75 kg');
+    expect(firstCard.querySelector('.set-list')?.textContent).not.toContain('6 ·');
+
+    for (let setNumber = 1; setNumber <= 3; setNumber += 1) {
+      app.setSeriesCompleted(firstRow.sourceRow, setNumber, true);
+    }
+    expect(app.completedExerciseRows().has(firstRow.sourceRow)).toBe(false);
+
+    app.setSeriesCompleted(firstRow.sourceRow, 4, true);
+    expect(app.completedExerciseRows().has(firstRow.sourceRow)).toBe(true);
+    expect(app.completedSetsFor(firstRow.sourceRow).size).toBe(4);
+  });
+
+  it('keeps the original exercise button in sync and restores partial set progress', async () => {
+    const firstFixture = TestBed.createComponent(App);
+    const firstApp = firstFixture.componentInstance;
+    await firstApp.loadTrainingPlan();
+    firstApp.startTraining();
+    const firstRow = firstApp.currentWorkoutDay()!.rows[0];
+
+    firstApp.setSeriesCompleted(firstRow.sourceRow, 1, true);
+    firstApp.setSeriesCompleted(firstRow.sourceRow, 2, true);
+    firstFixture.destroy();
+
+    const restoredFixture = TestBed.createComponent(App);
+    const restoredApp = restoredFixture.componentInstance;
+    await restoredApp.loadTrainingPlan();
+    expect([...restoredApp.completedSetsFor(firstRow.sourceRow)]).toEqual([1, 2]);
+    expect(restoredApp.completedExerciseRows().has(firstRow.sourceRow)).toBe(false);
+
+    restoredApp.setExerciseCompleted(firstRow.sourceRow, true);
+    expect(restoredApp.completedSetsFor(firstRow.sourceRow).size).toBe(4);
+    restoredApp.setExerciseCompleted(firstRow.sourceRow, false);
+    expect(restoredApp.completedSetsFor(firstRow.sourceRow).size).toBe(0);
+  });
+
   it('restores an active workout and its timer after a refresh', async () => {
     const firstFixture = TestBed.createComponent(App);
     const firstApp = firstFixture.componentInstance;

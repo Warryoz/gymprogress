@@ -176,7 +176,9 @@
                 [trainingMode]="trainingInProgress()"
                 [showRepdbMedia]="activeTrainingBlock() === 'block2'"
                 [completed]="completedExerciseRows().has(row.sourceRow)"
+                [completedSets]="completedSetsFor(row.sourceRow)"
                 (completedChange)="setExerciseCompleted(row.sourceRow, $event)"
+                (setCompletedChange)="setSeriesCompleted(row.sourceRow, $event.setNumber, $event.completed)"
               />
             }
           </div>

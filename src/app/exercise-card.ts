@@ -4,6 +4,7 @@ import { Component, computed, input, output, signal } from '@angular/core';
 import { TrainingPlanRow, formatSuggestedLoad } from './training-plan';
 import { resolveBlockTwoRepdbExercise } from './repdb-exercise-media';
 import { ExerciseMuscleMap } from './exercise-muscle-map';
+import { plannedSetCount } from './exercise-set-progress';
 
 @Component({
   selector: 'app-exercise-card',
@@ -112,6 +113,55 @@ import { ExerciseMuscleMap } from './exercise-muscle-map';
       }
 
       @if (trainingMode()) {
+        @if (totalSets() > 0) {
+          <section class="set-tracker" [class.finished]="allSetsCompleted()">
+            <button
+              type="button"
+              class="set-tracker-toggle"
+              [attr.aria-expanded]="setsOpen()"
+              [attr.aria-controls]="setPanelId()"
+              (click)="setsOpen.set(!setsOpen())"
+            >
+              <span class="set-tracker-copy">
+                <span>Series</span>
+                <strong>{{ completedSetCount() }} de {{ totalSets() }}</strong>
+              </span>
+              <span class="set-progress" aria-hidden="true">
+                @for (setNumber of setNumbers(); track setNumber) {
+                  <i [class.done]="isSetCompleted(setNumber)"></i>
+                }
+              </span>
+              <span class="set-tracker-hint">
+                {{ allSetsCompleted() ? 'Listas' : 'Registrar' }}
+                <span aria-hidden="true">{{ setsOpen() ? '−' : '+' }}</span>
+              </span>
+            </button>
+
+            @if (setsOpen()) {
+              <div class="set-list" [id]="setPanelId()">
+                @for (setNumber of setNumbers(); track setNumber) {
+                  <button
+                    type="button"
+                    class="set-row"
+                    [class.done]="isSetCompleted(setNumber)"
+                    [attr.aria-pressed]="isSetCompleted(setNumber)"
+                    (click)="toggleSet(setNumber)"
+                  >
+                    <span class="set-number">{{ setNumber }}</span>
+                    <span class="set-prescription">
+                      <strong>Serie {{ setNumber }}</strong>
+                    </span>
+                    <span class="set-status">
+                      {{ isSetCompleted(setNumber) ? 'Hecha' : 'Confirmar' }}
+                      <i aria-hidden="true">{{ isSetCompleted(setNumber) ? '✓' : '○' }}</i>
+                    </span>
+                  </button>
+                }
+              </div>
+            }
+          </section>
+        }
+
         <button
           type="button"
           class="complete-action"
@@ -135,12 +185,37 @@ export class ExerciseCard {
   public readonly trainingMode = input(false);
   public readonly showRepdbMedia = input(false);
   public readonly completed = input(false);
+  public readonly completedSets = input<ReadonlySet<number>>(new Set<number>());
   public readonly completedChange = output<boolean>();
+  public readonly setCompletedChange = output<{ setNumber: number; completed: boolean }>();
   protected readonly musclesOpen = signal(false);
+  protected readonly setsOpen = signal(false);
   protected readonly cardId = computed(() => `exercise-${this.row().sourceRow}`);
   protected readonly musclePanelId = computed(() => `${this.cardId()}-muscles`);
+  protected readonly setPanelId = computed(() => `${this.cardId()}-sets`);
   protected readonly displayLoad = computed(() => formatSuggestedLoad(this.row().suggestedLoad));
+  protected readonly totalSets = computed(() => plannedSetCount(this.row().sets));
+  protected readonly setNumbers = computed(() =>
+    Array.from({ length: this.totalSets() }, (_, index) => index + 1),
+  );
+  protected readonly completedSetCount = computed(() =>
+    this.setNumbers().filter((setNumber) => this.completedSets().has(setNumber)).length,
+  );
+  protected readonly allSetsCompleted = computed(
+    () => this.totalSets() > 0 && this.completedSetCount() === this.totalSets(),
+  );
   protected readonly repdbMedia = computed(() =>
     this.showRepdbMedia() ? resolveBlockTwoRepdbExercise(this.row()) : null,
   );
+
+  protected isSetCompleted(setNumber: number): boolean {
+    return this.completedSets().has(setNumber);
+  }
+
+  protected toggleSet(setNumber: number): void {
+    this.setCompletedChange.emit({
+      setNumber,
+      completed: !this.isSetCompleted(setNumber),
+    });
+  }
 }

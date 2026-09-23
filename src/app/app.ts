@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { AppHeader } from './app-header';
 import { ExerciseCard } from './exercise-card';
+import { plannedSetCount } from './exercise-set-progress';
 import { RoutineShareButton } from './routine-share-button';
 import { RoutineShareData } from './routine-share-text.util';
 import { WorkoutSessionBar } from './workout-session-bar';
@@ -164,6 +165,7 @@ interface StoredWorkoutSession {
   week: number;
   day: string;
   completedRows: number[];
+  completedSets?: Array<[number, number[]]>;
   startedAt: number | null;
   inProgress: boolean;
   completed: boolean;
@@ -276,6 +278,9 @@ export class App implements OnInit, OnDestroy {
   public readonly trainingInProgress = signal(false);
   public readonly trainingCompleted = signal(false);
   public readonly completedExerciseRows = signal<ReadonlySet<number>>(new Set<number>());
+  public readonly completedSetsByRow = signal<ReadonlyMap<number, ReadonlySet<number>>>(
+    new Map<number, ReadonlySet<number>>(),
+  );
   public readonly workoutStartedAt = signal<number | null>(null);
   public readonly clockNow = signal(Date.now());
   public readonly restTimerEndsAt = signal<number | null>(null);
@@ -1364,6 +1369,11 @@ export class App implements OnInit, OnDestroy {
         [...this.completedExerciseRows()].filter((sourceRow) => !rows.has(sourceRow)),
       );
       this.completedExerciseRows.set(remaining);
+      this.completedSetsByRow.set(
+        new Map(
+          [...this.completedSetsByRow()].filter(([sourceRow]) => !rows.has(sourceRow)),
+        ),
+      );
       this.trainingCompleted.set(false);
       this.workoutStartedAt.set(Date.now());
       this.dismissRestTimer();
@@ -1381,7 +1391,37 @@ export class App implements OnInit, OnDestroy {
     document.querySelector('#current-workout')?.scrollIntoView({ behavior: 'smooth' });
   }
 
-  public setExerciseCompleted(sourceRow: number, completed: boolean): void {
+  public completedSetsFor(sourceRow: number): ReadonlySet<number> {
+    return this.completedSetsByRow().get(sourceRow) ?? new Set<number>();
+  }
+
+  public setSeriesCompleted(sourceRow: number, setNumber: number, completed: boolean): void {
+    const row = this.currentWorkoutDay()?.rows.find((item) => item.sourceRow === sourceRow);
+    const totalSets = row ? plannedSetCount(row.sets) : 0;
+    if (!row || setNumber < 1 || setNumber > totalSets) return;
+
+    const completedSets = new Set(this.completedSetsFor(sourceRow));
+    if (completed) completedSets.add(setNumber);
+    else completedSets.delete(setNumber);
+
+    const nextByRow = new Map(this.completedSetsByRow());
+    if (completedSets.size) nextByRow.set(sourceRow, completedSets);
+    else nextByRow.delete(sourceRow);
+    this.completedSetsByRow.set(nextByRow);
+
+    const exerciseCompleted = completedSets.size === totalSets;
+    if (exerciseCompleted !== this.completedExerciseRows().has(sourceRow)) {
+      this.setExerciseCompleted(sourceRow, exerciseCompleted, false);
+    } else {
+      this.persistWorkoutSession();
+    }
+  }
+
+  public setExerciseCompleted(
+    sourceRow: number,
+    completed: boolean,
+    synchronizeSets = true,
+  ): void {
     const next = new Set(this.completedExerciseRows());
 
     if (completed) {
@@ -1391,6 +1431,21 @@ export class App implements OnInit, OnDestroy {
     }
 
     this.completedExerciseRows.set(next);
+
+    if (synchronizeSets) {
+      const row = this.currentWorkoutDay()?.rows.find((item) => item.sourceRow === sourceRow);
+      const totalSets = row ? plannedSetCount(row.sets) : 0;
+      const nextByRow = new Map(this.completedSetsByRow());
+      if (completed && totalSets > 0) {
+        nextByRow.set(
+          sourceRow,
+          new Set(Array.from({ length: totalSets }, (_, index) => index + 1)),
+        );
+      } else {
+        nextByRow.delete(sourceRow);
+      }
+      this.completedSetsByRow.set(nextByRow);
+    }
 
     if (completed) {
       const row = this.currentWorkoutDay()?.rows.find((item) => item.sourceRow === sourceRow);
@@ -2171,6 +2226,7 @@ export class App implements OnInit, OnDestroy {
     this.trainingInProgress.set(false);
     this.trainingCompleted.set(false);
     this.completedExerciseRows.set(new Set<number>());
+    this.completedSetsByRow.set(new Map<number, ReadonlySet<number>>());
     this.workoutStartedAt.set(null);
     this.restTimerEndsAt.set(null);
     this.restTimerPausedSeconds.set(0);
@@ -2222,6 +2278,10 @@ export class App implements OnInit, OnDestroy {
         week: this.selectedPlanWeek(),
         day: this.selectedPlanDay(),
         completedRows: [...this.completedExerciseRows()],
+        completedSets: [...this.completedSetsByRow()].map(([sourceRow, sets]) => [
+          sourceRow,
+          [...sets].sort((left, right) => left - right),
+        ]),
         startedAt: this.workoutStartedAt(),
         inProgress: this.trainingInProgress(),
         completed: this.trainingCompleted(),
@@ -2267,6 +2327,31 @@ export class App implements OnInit, OnDestroy {
       this.completedExerciseRows.set(
         new Set((stored.completedRows ?? []).filter((row) => validRows.has(row))),
       );
+      const restoredSets = new Map<number, ReadonlySet<number>>();
+      const storedSets = Array.isArray(stored.completedSets) ? stored.completedSets : [];
+      for (const entry of storedSets) {
+        if (!Array.isArray(entry) || entry.length !== 2) continue;
+        const [sourceRow, sets] = entry;
+        const row = day.rows.find((item) => item.sourceRow === sourceRow);
+        const totalSets = row ? plannedSetCount(row.sets) : 0;
+        if (!validRows.has(sourceRow) || !Array.isArray(sets) || totalSets === 0) continue;
+        const validSets = sets.filter(
+          (setNumber) => Number.isInteger(setNumber) && setNumber >= 1 && setNumber <= totalSets,
+        );
+        if (validSets.length) restoredSets.set(sourceRow, new Set(validSets));
+      }
+      for (const sourceRow of this.completedExerciseRows()) {
+        if (restoredSets.has(sourceRow)) continue;
+        const row = day.rows.find((item) => item.sourceRow === sourceRow);
+        const totalSets = row ? plannedSetCount(row.sets) : 0;
+        if (totalSets > 0) {
+          restoredSets.set(
+            sourceRow,
+            new Set(Array.from({ length: totalSets }, (_, index) => index + 1)),
+          );
+        }
+      }
+      this.completedSetsByRow.set(restoredSets);
       this.workoutStartedAt.set(
         typeof stored.startedAt === 'number' ? stored.startedAt : Date.now(),
       );
@@ -2325,6 +2410,7 @@ export class App implements OnInit, OnDestroy {
       this.selectedPlanDay.set(target.day.name);
       this.trainingCompleted.set(!next);
       this.completedExerciseRows.set(new Set(next ? [] : target.day.rows.map(row => row.sourceRow)));
+      this.completedSetsByRow.set(new Map<number, ReadonlySet<number>>());
     } catch { /* Ignore invalid saved progress. */ }
   }
 
