@@ -112,6 +112,190 @@ h3 {
   font-size: .86rem;
 }
 
+.repdb-media {
+  margin: var(--space-4) 0 0;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.repdb-visual {
+  position: relative;
+  width: 100%;
+  height: clamp(190px, 31vw, 290px);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at 50% 15%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 48%),
+    color-mix(in srgb, var(--surface-muted) 90%, var(--surface));
+}
+
+.repdb-visual .pose {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.repdb-visual.animated .pose {
+  position: absolute;
+  inset: 0;
+  will-change: opacity, transform;
+}
+
+.repdb-visual.animated .pose-start {
+  animation: repdb-start-pose 2.6s ease-in-out infinite;
+}
+
+.repdb-visual.animated .pose-peak {
+  animation: repdb-peak-pose 2.6s ease-in-out infinite;
+}
+
+.muscle-toggle {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, white 18%, var(--border));
+  border-radius: 999px;
+  padding: 7px 9px 7px 11px;
+  cursor: pointer;
+  color: #fff;
+  background: color-mix(in srgb, #080a0f 78%, transparent);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(10px);
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 850;
+}
+
+.muscle-toggle:hover {
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+  background: color-mix(in srgb, var(--accent) 34%, #080a0f);
+}
+
+.muscle-toggle:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: 2px;
+}
+
+.toggle-chevron {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 12%);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.muscle-panel {
+  display: grid;
+  grid-template-columns: minmax(150px, .55fr) minmax(0, 1.45fr);
+  gap: var(--space-4);
+  margin-top: -1px;
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  padding: var(--space-4);
+  background: linear-gradient(145deg, var(--surface-elevated), var(--surface-muted));
+}
+
+.muscle-details {
+  display: grid;
+  align-content: center;
+  gap: var(--space-4);
+}
+
+.muscle-details > div {
+  min-width: 0;
+}
+
+.muscle-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-primary);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.muscle-heading i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.muscle-heading.secondary i {
+  background: var(--text-secondary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-secondary) 14%, transparent);
+}
+
+.muscle-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.muscle-chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  font-size: .74rem;
+  font-weight: 750;
+}
+
+.muscle-chip.primary {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  color: color-mix(in srgb, var(--accent) 78%, var(--text-primary));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+
+@keyframes repdb-start-pose {
+  0%,
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50%,
+  90% {
+    opacity: 0;
+    transform: scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes repdb-peak-pose {
+  0%,
+  40% {
+    opacity: 0;
+    transform: scale(1.015);
+  }
+  50%,
+  90% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.015);
+  }
+}
+
 .details-toggle {
   display: flex;
   min-height: 44px;
@@ -210,6 +394,25 @@ h3 {
   .prescription {
     width: 100%;
     row-gap: 7px;
+  }
+
+  .repdb-visual {
+    height: clamp(210px, 66vw, 280px);
+  }
+
+  .muscle-panel {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+}
+
+/* The exercise demonstration is functional content: keep its two-pose loop
+   active even when the global reduced-motion rule disables decorative motion. */
+@media (prefers-reduced-motion: reduce) {
+  .repdb-visual.animated .pose-start,
+  .repdb-visual.animated .pose-peak {
+    animation-duration: 2.6s !important;
+    animation-iteration-count: infinite !important;
   }
 }
 

@@ -575,6 +575,18 @@ textarea:focus,
   gap: 10px;
 }
 
+.repdb-attribution {
+  margin: 10px 2px 0;
+  color: var(--text-secondary);
+  font-size: .68rem;
+  text-align: right;
+}
+
+.repdb-attribution a {
+  color: inherit;
+  text-underline-offset: 2px;
+}
+
 .exercise-plan-card {
   display: grid;
   gap: 10px;

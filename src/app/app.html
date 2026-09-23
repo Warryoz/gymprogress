@@ -174,11 +174,19 @@
                 [row]="row"
                 [tone]="blockClass(row)"
                 [trainingMode]="trainingInProgress()"
-                              [completed]="completedExerciseRows().has(row.sourceRow)"
+                [showRepdbMedia]="activeTrainingBlock() === 'block2'"
+                [completed]="completedExerciseRows().has(row.sourceRow)"
                 (completedChange)="setExerciseCompleted(row.sourceRow, $event)"
               />
             }
           </div>
+
+          @if (activeTrainingBlock() === 'block2') {
+            <p class="repdb-attribution">
+              Ilustraciones de ejercicios por
+              <a href="https://repdb.co" target="_blank" rel="noopener noreferrer">RepDB</a>
+            </p>
+          }
 
           @if (plan.warnings.length) {
             <section class="warning-list" aria-label="Avisos del plan">
