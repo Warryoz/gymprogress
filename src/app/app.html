@@ -1,6 +1,7 @@
 <app-header
   [activeView]="activeView()"
   (viewChange)="setActiveView($event)"
+  (home)="goHome()"
 />
 
 <main
@@ -35,9 +36,10 @@
           <div class="week-calendar">
             @for (week of planWeeks(); track week.week) {
               <button type="button" class="week-tile" [class.selected]="selectedPlanWeek() === week.week" [attr.aria-label]="'Semana ' + week.week + ': ' + shortPhase(week.phase)" (click)="choosePlanWeek(week.week)">
-                <span class="tile-kicker">Semana <span>{{ selectedPlanWeek() === week.week ? 'Actual' : '' }}</span></span>
-                <strong class="week-number">{{ week.week < 10 ? '0' : '' }}{{ week.week }}</strong>
-                <strong>{{ shortPhase(week.phase) }}</strong><small>{{ week.days.length }} rutinas</small>
+                <span class="week-number" aria-hidden="true">{{ week.week < 10 ? '0' : '' }}{{ week.week }}</span>
+                <span class="week-copy"><strong>Semana {{ week.week }} · {{ shortPhase(week.phase) }}</strong><small>{{ week.days.length }} rutinas</small></span>
+                @if (selectedPlanWeek() === week.week) { <span class="week-current">Actual</span> }
+                <span class="week-arrow" aria-hidden="true">›</span>
               </button>
             }
           </div>
@@ -47,14 +49,18 @@
       <div class="plan-location">
         <strong>{{ activeTrainingBlockDetails().label }} · Semana {{ selectedPlanWeek() }}</strong>
         @if (planMode() !== 'workout') {
-          <button class="change-plan" type="button" (click)="showPlanPicker()"><span>Cambiar bloque o semana</span></button>
+          <div class="plan-change-actions">
+            @if (routineChosen()) { <button class="change-plan" type="button" (click)="showRoutinePicker()"><span>Cambiar rutina</span></button> }
+            <button class="change-plan" type="button" (click)="showPlanPicker()"><span>Cambiar bloque o semana</span></button>
+          </div>
         }
       </div>
-      @if (planMode() !== 'workout') {
-        <nav class="routine-selector" aria-label="Rutinas de la semana">
+      @if (!routineChosen()) {
+        <div class="routine-list-heading"><h2 id="routines-title">Rutinas</h2></div>
+        <nav class="routine-selector" [class.routine-selector-list]="!routineChosen()" aria-labelledby="routines-title">
           @for (day of planDayOptions(); track day.key) {
-            <div class="routine-choice" [class.active]="routineChosen() && selectedPlanDay() === day.name">
-              <button type="button" class="routine-choice-button" [attr.aria-pressed]="routineChosen() && selectedPlanDay() === day.name" (click)="selectPlanDay(day.name)">{{ day.name }}</button>
+            <div class="routine-choice" [class.active]="isRoutineInProgress(day.name)">
+              <button type="button" class="routine-choice-button" [attr.aria-current]="isRoutineInProgress(day.name) ? 'true' : null" (click)="selectPlanDay(day.name)"><span>{{ day.name }}</span>@if (isRoutineInProgress(day.name)) { <small class="routine-running">En curso · Continuar</small> }</button>
             </div>
           }
         </nav>
@@ -96,10 +102,10 @@
               </div>
             }
           </div>
-          @if (!trainingCompleted()) {
+          @if (!trainingCompleted() && planMode() !== 'workout') {
           <div class="current-workout-actions">
 
-            <button type="button" class="primary-action" (click)="startTraining()">
+            <button type="button" class="primary-action workout-start" [class.workout-resume]="trainingInProgress()" (click)="startTraining()">
               {{ workoutActionLabel() }}
             </button>
           </div>
@@ -113,7 +119,7 @@
         @if (trainingInProgress() && planMode() === 'workout') {
           <app-workout-session-bar
             [workoutName]="workout.name"
-            [nextExercise]="nextWorkoutExercise()"
+            [nextExercise]="followingExercise()?.exercise ?? ''"
             [completed]="currentWorkoutProgress().completed"
             [total]="currentWorkoutProgress().total"
             [elapsedSeconds]="workoutElapsedSeconds()"
@@ -123,7 +129,7 @@
             [restFinished]="restTimerFinished()"
             [allCompleted]="currentWorkoutProgress().allCompleted"
             (exitFocus)="leaveWorkoutFocus()"
-            (primaryAction)="startTraining()"
+            (primaryAction)="advanceWorkoutExercise()"
             (toggleRest)="toggleRestTimer()"
             (addRest)="addRestTime()"
             (dismissRest)="dismissRestTimer()"
@@ -177,8 +183,14 @@
       @if (routineChosen()) {
       <section class="planner-layout">
         <section class="routine-exercises" aria-label="Ejercicios de la rutina">
+          @if (routineChosen()) {
+            <app-workout-exercise-navigation
+              [rows]="selectedPlanRows()" [current]="focusedExercise()?.sourceRow ?? null"
+              [completed]="completedExerciseRows()" (selected)="selectWorkoutExercise($event)"
+            />
+          }
           <div class="exercise-plan-list">
-            @for (row of selectedPlanRows(); track row.sourceRow) {
+            @for (row of visibleExerciseRows(); track row.sourceRow) {
               <app-exercise-card
                 [row]="row"
                 (mountBar)="openExerciseBarbell(row)"

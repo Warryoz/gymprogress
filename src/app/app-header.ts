@@ -5,7 +5,7 @@ import type { ActiveView } from './app';
   selector: 'app-header',
   template: `
     <header class="app-header">
-      <a class="brand" href="#main-content" aria-label="gerogym, ir al contenido">
+      <a class="brand" href="/" aria-label="gerogym, ir al inicio" (click)="$event.preventDefault(); moreOpen.set(false); home.emit()">
         <span aria-hidden="true">GG</span>
         <strong>gerogym</strong>
       </a>
@@ -70,6 +70,7 @@ import type { ActiveView } from './app';
 })
 export class AppHeader {
   public readonly activeView = input.required<ActiveView>();
+  public readonly home = output<void>();
   public readonly viewChange = output<ActiveView>();
   protected readonly moreOpen = signal(false);
 

@@ -198,3 +198,5 @@ button:focus-visible {
     width: 100%;
   }
 }
+
+.session-actions .quiet-action{color:#fff;background:#a33540;border-color:#a33540}.session-actions .quiet-action:hover{background:#852b34;border-color:#852b34}.session-actions .next-action{color:#fff;background:#225fa8;border-color:#225fa8}.session-actions .next-action:hover{background:#184d8a;border-color:#184d8a}

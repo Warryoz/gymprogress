@@ -43,3 +43,13 @@
 .routine-choice-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 8px; }
 .planner-layout { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 600px) { .routine-selector { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.routine-list-heading{margin:20px 0 10px}.routine-list-heading h2{font-size:1rem;color:var(--text-primary)}
+.routine-selector.routine-selector-list { grid-template-columns: minmax(0, 1fr); }
+.routine-selector-list .routine-choice-button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 16px; color: var(--text-primary); font-weight: 650; }
+.routine-selector-list .routine-choice-button::after { content: '›'; color: var(--text-secondary); font-size: 1.5rem; }
+.routine-selector-list .routine-choice:hover { border-color: var(--accent); background: var(--surface-elevated); }
+
+.week-calendar{grid-template-columns:1fr;gap:8px}.week-calendar .week-tile{display:flex;flex-direction:row;align-items:center;gap:14px;padding:16px;border-radius:12px}.week-calendar .week-number{display:grid;place-items:center;flex:0 0 44px;height:44px;border-radius:10px;background:color-mix(in srgb,var(--accent) 12%,var(--surface-elevated));font-size:1.15rem;font-weight:800}.week-copy{display:grid;gap:5px;flex:1;min-width:0}.week-copy strong{font-size:.9rem;line-height:1.4}.week-copy small{font-size:.75rem}.week-current{font-size:.68rem;color:var(--accent);border:1px solid var(--border);border-radius:999px;padding:4px 7px}.week-arrow{color:var(--text-secondary);font-size:1.5rem}.current-workout-actions .workout-start{background:#19764a;border-color:#19764a;color:#fff}.current-workout-actions .workout-start:hover{background:#125e3a}.current-workout-actions .workout-resume{background:#225fa8;border-color:#225fa8;color:#fff}.current-workout-actions .workout-resume:hover{background:#184d8a}@media(max-width:400px){.week-calendar .week-tile{gap:9px;padding:12px}.week-current{font-size:.62rem;padding:3px 5px}}
+
+.plan-change-actions{display:flex;flex-wrap:wrap;gap:4px 18px}.routine-running{margin-left:auto;color:var(--success);font-size:.72rem;white-space:nowrap}.routine-selector-list .routine-choice-button>span{flex:1}#routines-title{scroll-margin-top:100px}

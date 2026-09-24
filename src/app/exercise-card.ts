@@ -12,6 +12,7 @@ import { plannedSetCount } from './exercise-set-progress';
   template: `
     <article
       class="exercise-card"
+      tabindex="-1"
       [class]="tone()"
       [class.completed]="completed()"
       [id]="cardId()"

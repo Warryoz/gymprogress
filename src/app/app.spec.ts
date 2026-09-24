@@ -224,7 +224,7 @@ describe('App', () => {
     app.startTraining();
     expect(app.trainingInProgress()).toBe(true);
     expect(app.planMode()).toBe('workout');
-    expect(app.workoutActionLabel()).toBe('Ir al siguiente ejercicio');
+    expect(app.workoutActionLabel()).toBe('Volver al enfoque');
 
     app.setActiveView('plan');
     expect(app.planMode()).toBe('overview');
@@ -238,9 +238,7 @@ describe('App', () => {
     rows.forEach((row) => app.setExerciseCompleted(row.sourceRow, true));
 
     expect(app.currentWorkoutProgress().allCompleted).toBe(true);
-    expect(app.workoutActionLabel()).toBe('Finalizar entrenamiento');
-
-    app.startTraining();
+    expect(app.workoutActionLabel()).toBe('Repetir entrenamiento');
     expect(app.trainingInProgress()).toBe(false);
     expect(app.trainingCompleted()).toBe(true);
     expect(app.workoutReportOpen()).toBe(true);
@@ -251,6 +249,163 @@ describe('App', () => {
     });
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).querySelector('app-workout-report-modal')).toBeTruthy();
+  });
+
+
+  it('shows only the selected exercise in focus and preserves progress while navigating', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await app.loadTrainingPlan();
+    app.planPickerOpen.set(false);
+    app.startTraining();
+    fixture.detectChanges();
+    const rows = app.currentWorkoutDay()!.rows;
+    const root = fixture.nativeElement as HTMLElement;
+    expect(app.focusedExercise()?.sourceRow).toBe(rows[0].sourceRow);
+    expect(root.querySelectorAll('app-exercise-card')).toHaveLength(1);
+    expect(root.querySelector('.current-workout-actions')).toBeNull();
+    expect(root.querySelectorAll('app-workout-exercise-navigation button')).toHaveLength(rows.length);
+    app.setSeriesCompleted(rows[0].sourceRow, 1, true);
+    app.advanceWorkoutExercise();
+    fixture.detectChanges();
+    expect(app.focusedExercise()?.sourceRow).toBe(rows[1].sourceRow);
+    expect(app.completedExerciseRows().size).toBe(0);
+    app.selectWorkoutExercise(rows[0].sourceRow);
+    expect(app.completedSetsFor(rows[0].sourceRow).has(1)).toBe(true);
+    (root.querySelector('#current-workout') as HTMLElement).scrollIntoView = vi.fn();
+    app.leaveWorkoutFocus();
+    fixture.detectChanges();
+    expect(root.querySelectorAll('app-exercise-card')).toHaveLength(1);
+    app.startTraining();
+    expect(app.visibleExerciseRows()).toEqual([rows[0]]);
+    app.advanceWorkoutExercise();
+    app.advanceWorkoutExercise();
+    expect(app.focusedExercise()?.sourceRow).toBe(rows[0].sourceRow);
+  });
+
+
+
+  it('previews one exercise without starting a session and offers a collapsed list', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await app.loadTrainingPlan();
+    app.planPickerOpen.set(false);
+    const rows = app.currentWorkoutDay()!.rows;
+    app.selectWorkoutExercise(rows[1].sourceRow);
+    fixture.detectChanges();
+    expect(app.trainingInProgress()).toBe(false);
+    expect(app.visibleExerciseRows()).toEqual([rows[1]]);
+    const list = fixture.nativeElement.querySelector('app-workout-exercise-navigation details') as HTMLDetailsElement;
+    expect(list.open).toBe(false);
+    expect(list.querySelectorAll('li')).toHaveLength(rows.length);
+    app.startTraining();
+    expect(app.focusedExercise()?.sourceRow).toBe(rows[0].sourceRow);
+  });
+
+  it('automatically advances to pending exercises and finishes once all are complete', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    await app.loadTrainingPlan();
+    app.selectTrainingBlock('block2');
+    app.startTraining();
+    const rows = app.currentWorkoutDay()!.rows;
+    app.setExerciseCompleted(rows[0].sourceRow, true);
+    expect(app.focusedExercise()?.sourceRow).toBe(rows[1].sourceRow);
+    app.selectWorkoutExercise(rows.at(-1)!.sourceRow);
+    app.setExerciseCompleted(rows.at(-1)!.sourceRow, true);
+    expect(app.focusedExercise()?.sourceRow).toBe(rows[1].sourceRow);
+    expect(app.trainingInProgress()).toBe(true);
+    for (const row of rows.slice(1, -1)) app.setExerciseCompleted(row.sourceRow, true);
+    expect(app.trainingInProgress()).toBe(false);
+    expect(app.trainingCompleted()).toBe(true);
+    expect(app.workoutReportOpen()).toBe(true);
+    expect(app.workoutReport()?.completionRate).toBe(100);
+    expect(JSON.parse(localStorage.getItem('gym-progress-block-history-block2')!)).toHaveLength(1);
+  });
+
+
+  it('hides the routine list after selection and resumes a running routine after browsing another', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await app.loadTrainingPlan();
+    app.selectTrainingBlock('block2');
+    const days = app.planDayOptions();
+    app.choosePlanWeek(app.selectedPlanWeek());
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.routine-selector-list')).toBeTruthy();
+    app.selectPlanDay(days[0].name);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.routine-selector')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Cambiar rutina');
+    app.startTraining();
+    const row = app.currentWorkoutDay()!.rows[0];
+    app.setSeriesCompleted(row.sourceRow, 1, true);
+    app.advanceWorkoutExercise();
+    const selected = app.focusedExercise()?.sourceRow;
+    app.showRoutinePicker();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.routine-running')?.textContent).toContain('En curso');
+    app.selectPlanDay(days[1].name);
+    expect(app.trainingInProgress()).toBe(false);
+    app.showRoutinePicker();
+    expect(app.isRoutineInProgress(days[0].name)).toBe(true);
+    app.selectPlanDay(days[0].name);
+    expect(app.trainingInProgress()).toBe(true);
+    expect(app.planMode()).toBe('workout');
+    expect(app.completedSetsFor(row.sourceRow).has(1)).toBe(true);
+    expect(app.focusedExercise()?.sourceRow).toBe(selected);
+  });
+
+  it('retains the running routine independently when another routine is started', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    await app.loadTrainingPlan();
+    app.selectTrainingBlock('block2');
+    const days = app.planDayOptions();
+    app.selectPlanDay(days[0].name);
+    app.startTraining();
+    app.advanceWorkoutExercise();
+    const selected = app.focusedExercise()?.sourceRow;
+    app.showRoutinePicker();
+    app.selectPlanDay(days[1].name);
+    app.startTraining();
+    const restored = TestBed.createComponent(App).componentInstance;
+    await restored.loadTrainingPlan();
+    restored.showRoutinePicker();
+    expect(restored.isRoutineInProgress(days[0].name)).toBe(true);
+    expect(restored.isRoutineInProgress(days[1].name)).toBe(true);
+    restored.selectPlanDay(days[0].name);
+    expect(restored.focusedExercise()?.sourceRow).toBe(selected);
+  });
+
+  it('restores the selected exercise after a reload', async () => {
+    const first = TestBed.createComponent(App);
+    await first.componentInstance.loadTrainingPlan();
+    first.componentInstance.startTraining();
+    first.componentInstance.advanceWorkoutExercise();
+    const selected = first.componentInstance.focusedExercise()?.sourceRow;
+    first.destroy();
+    const restored = TestBed.createComponent(App);
+    await restored.componentInstance.loadTrainingPlan();
+    expect(restored.componentInstance.planMode()).toBe('workout');
+    expect(restored.componentInstance.focusedExercise()?.sourceRow).toBe(selected);
+    expect(restored.componentInstance.visibleExerciseRows()).toHaveLength(1);
+  });
+
+  it('returns home from the brand without discarding the active session', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await app.loadTrainingPlan();
+    app.startTraining();
+    app.advanceWorkoutExercise();
+    const focused = app.focusedExercise()?.sourceRow;
+    app.setActiveView('calculator');
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.brand') as HTMLAnchorElement).click();
+    fixture.detectChanges();
+    expect(app.activeView()).toBe('plan');
+    expect(app.planPickerOpen()).toBe(true);
+    expect(app.trainingInProgress()).toBe(true);
+    expect(app.focusedExercise()?.sourceRow).toBe(focused);
+    expect(fixture.nativeElement.querySelector('.plan-picker')).toBeTruthy();
   });
 
   it('starts a prescription-aware rest timer after completing an exercise', async () => {
@@ -358,7 +513,6 @@ describe('App', () => {
     const days = app.trainingPlan()!.weeks[0].days;
     app.startTraining();
     for (const row of days[0].rows) app.setExerciseCompleted(row.sourceRow, true);
-    app.startTraining();
     expect(app.trainingCompleted()).toBe(true);
     app.selectTrainingBlock('block1');
     app.selectTrainingBlock('block2');
@@ -390,7 +544,6 @@ describe('App', () => {
       app.selectPlanDay(day);
       app.startTraining();
       for (const row of app.currentWorkoutDay()!.rows) app.setExerciseCompleted(row.sourceRow, true);
-      app.startTraining();
       app.setActiveView('progress');
       app.setActiveView('plan');
     };

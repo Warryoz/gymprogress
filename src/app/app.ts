@@ -1,3 +1,4 @@
+import { WorkoutExerciseNavigation } from './workout-exercise-navigation';
 import { BarbellVisual } from './barbell-visual';
 import { BarbellModal } from './barbell-modal';
 import { TrainingDictionary } from './training-dictionary';
@@ -164,6 +165,7 @@ type StrengthCalculatorPage =
 type CalculatorDataSource = 'manual' | 'history';
 
 interface StoredWorkoutSession {
+  focusedExerciseRow?: number | null;
   version: 1;
   block?: TrainingBlockId;
   week: number;
@@ -222,6 +224,7 @@ export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator' |
     ExerciseCard,
     RoutineShareButton,
     WorkoutSessionBar,
+    WorkoutExerciseNavigation,
     WorkoutReportModal,
     TechnicalTooltip,
     TrainingDictionary,
@@ -274,11 +277,58 @@ export class App implements OnInit, OnDestroy {
     setTimeout(() => document.querySelector('#main-content')?.scrollIntoView({ block: 'start' }), 0);
   }
 
+  public showRoutinePicker(): void {
+    if (this.trainingInProgress()) this.persistWorkoutSession();
+    this.planMode.set('overview');
+    this.planPickerOpen.set(false);
+    this.routineChosen.set(false);
+    setTimeout(() => {
+      const heading = document.querySelector<HTMLElement>('#routines-title');
+      heading?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 0);
+  }
+
+  private readonly routineSessions = new Map<string, StoredWorkoutSession>();
+
+  private routineSessionKey(day: string): string {
+    return this.workoutSessionStorageKey() + '-week-' + this.selectedPlanWeek() + '-day-' + encodeURIComponent(day);
+  }
+
+  private savedRoutineSession(day: string): StoredWorkoutSession | null {
+    const key = this.routineSessionKey(day);
+    if (this.routineSessions.has(key)) return this.routineSessions.get(key)!;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const session = JSON.parse(raw) as StoredWorkoutSession;
+      return session.version === 1 && session.week === this.selectedPlanWeek() && session.day === day && session.block === this.activeTrainingBlock() ? session : null;
+    } catch { return null; }
+  }
+
+  public isRoutineInProgress(day: string): boolean {
+    if (day === this.selectedPlanDay() && this.trainingInProgress()) return true;
+    return this.savedRoutineSession(day)?.inProgress === true;
+  }
+
   public showPlanPicker(): void {
     this.planPickerOpen.set(true);
     this.planMode.set('overview');
     setTimeout(() => document.querySelector('#main-content')?.scrollIntoView({ block: 'start' }), 0);
   }
+
+  public readonly focusedExerciseRow = signal<number | null>(null);
+  public readonly focusedExercise = computed<TrainingPlanRow | null>(() => {
+    const rows = this.currentWorkoutDay()?.rows ?? [];
+    return rows.find(row => row.sourceRow === this.focusedExerciseRow()) ?? rows[0] ?? null;
+  });
+  public readonly visibleExerciseRows = computed(() =>
+    this.focusedExercise() ? [this.focusedExercise()!] : [],
+  );
+  public readonly followingExercise = computed<TrainingPlanRow | null>(() => {
+    const rows = this.currentWorkoutDay()?.rows ?? [];
+    const index = rows.findIndex(row => row.sourceRow === this.focusedExercise()?.sourceRow);
+    return rows[index + 1] ?? rows.find(row => !this.completedExerciseRows().has(row.sourceRow)) ?? null;
+  });
 
   public readonly planMode = signal<'overview' | 'workout'>('overview');
   public readonly weekOverviewOpen = signal(false);
@@ -550,7 +600,7 @@ export class App implements OnInit, OnDestroy {
     }
 
     if (this.trainingInProgress()) {
-      return 'Ir al siguiente ejercicio';
+      return 'Volver al enfoque';
     }
 
     if (this.trainingCompleted()) {
@@ -1356,6 +1406,28 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  public goHome(): void {
+    this.activeView.set('plan');
+    this.showPlanPicker();
+  }
+
+  public selectWorkoutExercise(sourceRow: number): void {
+    if (!this.currentWorkoutDay()?.rows.some(row => row.sourceRow === sourceRow)) return;
+    this.focusedExerciseRow.set(sourceRow);
+    if (this.trainingInProgress()) this.persistWorkoutSession();
+    setTimeout(() => {
+      const card = document.querySelector<HTMLElement>(`#exercise-${sourceRow}`);
+      card?.focus({ preventScroll: true });
+      card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 0);
+  }
+
+  public advanceWorkoutExercise(): void {
+    if (this.currentWorkoutProgress().allCompleted) { this.startTraining(); return; }
+    const next = this.followingExercise();
+    if (next) this.selectWorkoutExercise(next.sourceRow);
+  }
+
   public setActiveView(view: ActiveView): void {
     this.activeView.set(view);
     if (view === 'plan') {
@@ -1387,21 +1459,12 @@ export class App implements OnInit, OnDestroy {
     }
 
     if (this.trainingInProgress() && this.currentWorkoutProgress().allCompleted) {
-      const completedAt = Date.now();
-      this.clockNow.set(completedAt);
-      this.workoutCompletedAt.set(completedAt);
-      this.trainingInProgress.set(false);
-      this.trainingCompleted.set(true);
-      this.workoutReportOpen.set(true);
-      this.saveBlockCompletion();
-      this.planMode.set('overview');
-      this.dismissRestTimer();
-      this.persistWorkoutSession();
-      document.querySelector('#current-workout')?.scrollIntoView({ behavior: 'smooth' });
+      this.finishTraining();
       return;
     }
 
     if (!this.trainingInProgress()) {
+      this.focusedExerciseRow.set(day.rows[0]?.sourceRow ?? null);
       const rows = new Set(day.rows.map((row) => row.sourceRow));
       const remaining = new Set(
         [...this.completedExerciseRows()].filter((sourceRow) => !rows.has(sourceRow)),
@@ -1420,9 +1483,25 @@ export class App implements OnInit, OnDestroy {
     }
 
     this.selectedPlanDay.set(day.name);
+    this.routineChosen.set(true);
     this.trainingInProgress.set(true);
     this.persistWorkoutSession();
-    setTimeout(() => this.scrollToNextExercise(), 0);
+    if (this.focusedExercise()) this.selectWorkoutExercise(this.focusedExercise()!.sourceRow);
+  }
+
+  private finishTraining(): void {
+    if (!this.trainingInProgress() || !this.currentWorkoutProgress().allCompleted) return;
+    const completedAt = Date.now();
+    this.clockNow.set(completedAt);
+    this.workoutCompletedAt.set(completedAt);
+    this.trainingInProgress.set(false);
+    this.trainingCompleted.set(true);
+    this.workoutReportOpen.set(true);
+    this.saveBlockCompletion();
+    this.planMode.set('overview');
+    this.dismissRestTimer();
+    this.persistWorkoutSession();
+    document.querySelector('#current-workout')?.scrollIntoView({ behavior: 'smooth' });
   }
 
   public leaveWorkoutFocus(): void {
@@ -1494,7 +1573,16 @@ export class App implements OnInit, OnDestroy {
       } else {
         this.dismissRestTimer();
       }
-      setTimeout(() => this.scrollToNextExercise(), 180);
+      if (this.trainingInProgress()) {
+        if (this.currentWorkoutProgress().allCompleted) {
+          this.finishTraining();
+          return;
+        }
+        const rows = this.currentWorkoutDay()?.rows ?? [];
+        const index = rows.findIndex(row => row.sourceRow === sourceRow);
+        const pending = [...rows.slice(index + 1), ...rows.slice(0, index)].find(row => !next.has(row.sourceRow));
+        if (pending) this.selectWorkoutExercise(pending.sourceRow);
+      }
     } else {
       this.dismissRestTimer();
     }
@@ -2114,8 +2202,17 @@ export class App implements OnInit, OnDestroy {
   }
 
   public selectPlanDay(day: string): void {
-    this.selectedPlanDay.set(day);
+    if (!this.planDayOptions().some(option => option.name === day)) return;
+    if (day !== this.selectedPlanDay()) {
+      if (this.trainingInProgress()) this.persistWorkoutSession();
+      this.resetWorkoutState();
+      this.selectedPlanDay.set(day);
+      const plan = this.trainingPlan();
+      if (plan) this.restoreWorkoutSession(plan, day);
+    }
     this.routineChosen.set(true);
+    this.planPickerOpen.set(false);
+    if (this.trainingInProgress()) this.planMode.set('workout');
   }
 
   public selectExercise(key: string): void {
@@ -2277,6 +2374,7 @@ export class App implements OnInit, OnDestroy {
   }
 
   private resetWorkoutState(): void {
+    this.focusedExerciseRow.set(null);
     this.planMode.set('overview');
     this.trainingInProgress.set(false);
     this.trainingCompleted.set(false);
@@ -2331,6 +2429,7 @@ export class App implements OnInit, OnDestroy {
     try {
       const session: StoredWorkoutSession = {
         version: 1,
+        focusedExerciseRow: this.focusedExercise()?.sourceRow ?? null,
         block: this.activeTrainingBlock(),
         week: this.selectedPlanWeek(),
         day: this.selectedPlanDay(),
@@ -2346,6 +2445,10 @@ export class App implements OnInit, OnDestroy {
         restTimerPausedSeconds: this.restTimerPausedSeconds(),
         restTimerDuration: this.restTimerDuration(),
       };
+      if (session.inProgress || session.completed) {
+        this.routineSessions.set(this.routineSessionKey(session.day), session);
+        try { localStorage.setItem(this.routineSessionKey(session.day), JSON.stringify(session)); } catch { /* Keep the in-memory session. */ }
+      }
       const serialized = JSON.stringify(session);
       localStorage.setItem(this.workoutSessionStorageKey(), serialized);
       if (this.activeTrainingBlock() === 'block1') {
@@ -2356,16 +2459,17 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  private restoreWorkoutSession(plan: ParsedTrainingPlan): void {
-    this.restoreBlockProgress(plan);
+  private restoreWorkoutSession(plan: ParsedTrainingPlan, requestedDay?: string): void {
+    if (!requestedDay) this.restoreBlockProgress(plan);
     try {
-      const raw =
+      const raw = requestedDay ? JSON.stringify(this.savedRoutineSession(requestedDay)) :
         localStorage.getItem(this.workoutSessionStorageKey()) ??
         (this.activeTrainingBlock() === 'block1'
           ? localStorage.getItem(WORKOUT_SESSION_STORAGE_KEY)
           : null);
       if (!raw) return;
-      const stored = JSON.parse(raw) as Partial<StoredWorkoutSession>;
+      const stored = JSON.parse(raw) as Partial<StoredWorkoutSession> | null;
+      if (!stored) return;
       if (
         stored.version !== 1 ||
         !stored.inProgress ||
@@ -2412,6 +2516,12 @@ export class App implements OnInit, OnDestroy {
       this.workoutStartedAt.set(
         typeof stored.startedAt === 'number' ? stored.startedAt : Date.now(),
       );
+      this.focusedExerciseRow.set(
+        day.rows.find(row => row.sourceRow === stored.focusedExerciseRow)?.sourceRow
+          ?? day.rows.find(row => !this.completedExerciseRows().has(row.sourceRow))?.sourceRow
+          ?? day.rows[0]?.sourceRow ?? null,
+      );
+      this.routineChosen.set(true);
       this.trainingInProgress.set(true);
       this.trainingCompleted.set(false);
       this.planMode.set('workout');
