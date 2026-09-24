@@ -6,7 +6,7 @@ import type { ActiveView } from './app';
   template: `
     <header class="app-header">
       <a class="brand" href="/" aria-label="gerogym, ir al inicio" (click)="$event.preventDefault(); moreOpen.set(false); home.emit()">
-        <span aria-hidden="true">GG</span>
+        <img src="gerogym.ico" width="36" height="36" alt="" />
         <strong>gerogym</strong>
       </a>
 

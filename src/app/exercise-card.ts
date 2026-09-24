@@ -1,3 +1,4 @@
+import { WarmupModal } from './warmup-modal';
 import { TechnicalTooltip } from './technical-tooltip';
 import { technicalDescription } from './training-glossary';
 import { Component, computed, input, output, signal } from '@angular/core';
@@ -8,7 +9,7 @@ import { plannedSetCount } from './exercise-set-progress';
 
 @Component({
   selector: 'app-exercise-card',
-  imports: [TechnicalTooltip, ExerciseMuscleMap],
+  imports: [WarmupModal, TechnicalTooltip, ExerciseMuscleMap],
   template: `
     <article
       class="exercise-card"
@@ -17,6 +18,7 @@ import { plannedSetCount } from './exercise-set-progress';
       [class.completed]="completed()"
       [id]="cardId()"
     >
+      @if (firstExercise() && !repdbMedia()) { <button type="button" class="warmup-action" (click)="warmupOpen.set(true)">♨ Calentar</button> }
       <div class="exercise-main">
         <div class="exercise-title">
           <span class="block-label">
@@ -76,9 +78,8 @@ import { plannedSetCount } from './exercise-set-progress';
                 Montar barra
               </button>
             }
-            <button
-              type="button"
-              class="muscle-toggle"
+            @if (firstExercise()) { <button type="button" class="warmup-action on-image" (click)="warmupOpen.set(true)">♨ Calentar</button> }
+            <button type="button" class="muscle-toggle"
               [attr.aria-expanded]="musclesOpen()"
               [attr.aria-controls]="musclePanelId()"
               (click)="musclesOpen.set(!musclesOpen())"
@@ -182,10 +183,13 @@ import { plannedSetCount } from './exercise-set-progress';
       }
 
     </article>
+    @if (firstExercise() && warmupOpen()) { <app-warmup-modal [exercise]="row().exercise" [suggestedLoad]="row().suggestedLoad" [barbell]="usesBarbell()" (close)="warmupOpen.set(false)" /> }
   `,
   styleUrl: './exercise-card.css',
 })
 export class ExerciseCard {
+  readonly firstExercise = input(false);
+  protected readonly warmupOpen = signal(false);
   readonly mountBar = output<void>();
   protected readonly usesBarbell = computed(() => {
     const row = this.row();

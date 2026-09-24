@@ -193,6 +193,7 @@
             @for (row of visibleExerciseRows(); track row.sourceRow) {
               <app-exercise-card
                 [row]="row"
+                [firstExercise]="row.sourceRow === currentWorkoutDay()?.rows?.[0]?.sourceRow"
                 (mountBar)="openExerciseBarbell(row)"
                 [tone]="blockClass(row)"
                 [trainingMode]="trainingInProgress()"

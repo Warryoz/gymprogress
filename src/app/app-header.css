@@ -22,14 +22,14 @@
   text-decoration: none;
 }
 
-.brand > span {
+.brand > img {
   display: grid;
   width: 36px;
   height: 36px;
   place-items: center;
   border-radius: var(--radius-sm);
   color: var(--accent-contrast);
-  background: var(--accent);
+  object-fit: contain;
   font-size: .78rem;
   font-weight: 900;
 }
