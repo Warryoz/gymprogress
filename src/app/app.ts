@@ -1,3 +1,5 @@
+import { BarbellVisual } from './barbell-visual';
+import { BarbellModal } from './barbell-modal';
 import { TrainingDictionary } from './training-dictionary';
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, computed, signal } from '@angular/core';
@@ -190,9 +192,9 @@ interface TrainingBlockOption {
 
 const DEFAULT_PLATE_INVENTORIES: Record<WeightUnit, PlateInventoryItem[]> = {
   kg: [
-    { weight: 25, quantity: 4 },
+    { weight: 25, quantity: 0 },
     { weight: 20, quantity: 4 },
-    { weight: 15, quantity: 2 },
+    { weight: 15, quantity: 0 },
     { weight: 10, quantity: 4 },
     { weight: 5, quantity: 4 },
     { weight: 2.5, quantity: 4 },
@@ -214,6 +216,8 @@ export type ActiveView = 'plan' | 'routineSummary' | 'progress' | 'calculator' |
   selector: 'app-root',
   imports: [
     CommonModule,
+    BarbellVisual,
+    BarbellModal,
     AppHeader,
     ExerciseCard,
     RoutineShareButton,
@@ -328,7 +332,8 @@ export class App implements OnInit, OnDestroy {
   public readonly quickObjective = signal<string | null>(null);
   public readonly quickObjectiveMessage = signal<string | null>(null);
   public readonly targetBarWeight = signal(0);
-  public readonly emptyBarWeight = signal(0);
+  public readonly emptyBarWeight = signal(20);
+  public readonly barbellExercise = signal<TrainingPlanRow | null>(null);
   public readonly collarWeight = signal(0);
   public readonly plateInventories = signal<Record<WeightUnit, PlateInventoryItem[]>>({
     kg: DEFAULT_PLATE_INVENTORIES.kg.map((plate) => ({ ...plate })),
@@ -395,8 +400,9 @@ export class App implements OnInit, OnDestroy {
 
   public readonly plateConfiguration = computed(() => ({
     unit: this.calculatorUnit(),
-    barWeight: Math.max(this.emptyBarWeight(), 0),
-    collarWeight: Math.max(this.collarWeight(), 0),
+    barWeight: this.emptyBarWeight(),
+    collarWeight: 0,
+    unlimitedPlates: true,
     plates: this.plateInventories()[this.calculatorUnit()],
   }));
 
@@ -410,6 +416,9 @@ export class App implements OnInit, OnDestroy {
     }
     if (!Number.isFinite(this.emptyBarWeight()) || this.emptyBarWeight() < 0) {
       return 'El peso de la barra no puede ser negativo.';
+    }
+    if (!Number.isFinite(this.collarWeight()) || this.collarWeight() < 0) {
+      return 'El peso de los seguros no puede ser negativo.';
     }
     if (
       this.targetBarWeight() <
@@ -1679,6 +1688,19 @@ export class App implements OnInit, OnDestroy {
     this.scrollStrengthIntoView('#strength-tool-context');
   }
 
+  public openExerciseBarbell(row: TrainingPlanRow): void {
+    const load = row.suggestedLoad.match(/^\s*(\d+(?:[.,]\d+)?)(?:\s*(kg|lb)\b|(?=\s*$))/i);
+    const unit: WeightUnit = load?.[2]?.toLowerCase() === 'lb' ? 'lb' : 'kg';
+    this.updateCalculatorUnit(unit);
+    this.targetBarWeight.set(load ? Number(load[1].replace(',', '.')) : 0);
+    this.barbellExercise.set(row);
+  }
+
+  public closeExerciseBarbell(): void {
+    this.barbellExercise.set(null);
+    if (!this.plateValidation()) this.persistStrengthSettings();
+  }
+
   public calculatePlates(): void {
     this.platesAttempted.set(true);
     this.platesCalculated.set(this.plateValidation() === null);
@@ -1766,8 +1788,8 @@ export class App implements OnInit, OnDestroy {
     this.persistStrengthSettings();
   }
 
-  public updatePlateQuantity(weight: number, event: Event): void {
-    const quantity = Math.max(0, Math.round(this.numberInput(event, 0)));
+  public togglePlate(weight: number, enabled: boolean): void {
+    const quantity = enabled ? 2 : 0;
     const unit = this.calculatorUnit();
     this.plateInventories.update((inventories) => ({
       ...inventories,
@@ -2468,7 +2490,7 @@ export class App implements OnInit, OnDestroy {
       if (!settings.remember) return;
       this.rememberStrengthSettings.set(true);
       if (Number.isFinite(settings.collarWeight) && (settings.collarWeight ?? 0) >= 0) {
-        this.collarWeight.set(settings.collarWeight ?? 0);
+        this.collarWeight.set(0);
       }
       if (
         Number.isFinite(settings.roundingIncrement) &&

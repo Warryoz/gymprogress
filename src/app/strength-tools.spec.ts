@@ -162,3 +162,43 @@ describe('strength tools', () => {
     expect(suggestion.target).toBe('8, 8, 8, 8 repeticiones @ RIR 2');
   });
 });
+
+
+describe('gym plate loading', () => {
+  const config = { unit: 'kg' as const, barWeight: 20, collarWeight: 0, plates: [
+    { weight: 1.25, quantity: 2 }, { weight: 5, quantity: 4 },
+    { weight: 20, quantity: 4 }, { weight: 10, quantity: 2 },
+  ] };
+  it('uses the fewest available discs and orders them from largest to smallest', () => {
+    expect(calculatePlateCombination(112.5, config).exact?.perSide).toEqual([
+      { weight: 20, count: 2 }, { weight: 5, count: 1 }, { weight: 1.25, count: 1 },
+    ]);
+  });
+  it('does not invent a pair from an odd inventory or use unavailable discs', () => {
+    const result = calculatePlateCombination(65, { ...config, plates: [{ weight: 20, quantity: 3 }, { weight: 2.5, quantity: 0 }] });
+    expect(result.exact).toBeNull();
+    expect(result.lower.total).toBe(60);
+    expect(result.upper).toBeNull();
+  });
+  it('includes collars and supports the empty bar', () => {
+    expect(calculatePlateCombination(25, { ...config, collarWeight: 5 }).exact?.perSide).toEqual([]);
+    expect(calculatePlateCombination(65, { ...config, collarWeight: 5 }).exact?.perSide).toEqual([{ weight: 20, count: 1 }]);
+  });
+  it('does not claim an exact result below the bar or for a rounded target', () => {
+    expect(calculatePlateCombination(10, config).exact).toBeNull();
+    const result = calculatePlateCombination(60.01, config);
+    expect(result.exact).toBeNull();
+    expect(result.lower.total).toBe(60);
+    expect(result.upper?.total).toBe(62.5);
+  });
+});
+
+
+it('uses as many pairs as needed of enabled gym discs', () => {
+  const result = calculatePlateCombination(180, {
+    unit: 'kg', barWeight: 20, collarWeight: 0, unlimitedPlates: true,
+    plates: [{ weight: 25, quantity: 0 }, { weight: 20, quantity: 2 }, { weight: 15, quantity: 0 }],
+  });
+  expect(result.exact?.perSide).toEqual([{ weight: 20, count: 4 }]);
+  expect(result.exact?.total).toBe(180);
+});

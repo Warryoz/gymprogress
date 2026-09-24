@@ -181,6 +181,7 @@
             @for (row of selectedPlanRows(); track row.sourceRow) {
               <app-exercise-card
                 [row]="row"
+                (mountBar)="openExerciseBarbell(row)"
                 [tone]="blockClass(row)"
                 [trainingMode]="trainingInProgress()"
                 [showRepdbMedia]="activeTrainingBlock() === 'block2'"
@@ -771,7 +772,7 @@
         <app-calculator-instructions>
           <ol>
             <li>Introduce el peso total que quieres levantar.</li>
-            <li>Indica cuánto pesan la barra y los seguros.</li>
+            <li>Indica cuánto pesan la barra.</li>
             <li>Configura los discos que realmente tienes disponibles.</li>
           </ol>
           <p>El peso objetivo incluye la barra y los discos de ambos lados.</p>
@@ -829,35 +830,18 @@
             </button>
             @if (plateConfigurationOpen()) {
               <div id="plate-options" class="plate-options">
-                <label>
-                  <span>Peso total de seguros</span>
-                  <div class="number-field">
-                    <input
-                      type="number"
-                      inputmode="decimal"
-                      min="0"
-                      step="0.5"
-                      placeholder="Opcional"
-                      [value]="collarWeight() || ''"
-                      (input)="updateCollarWeight($event)"
-                    />
-                    <strong>{{ calculatorUnit() }}</strong>
-                  </div>
-                </label>
                 <div>
-                  <span>Discos disponibles</span>
+                  <span>Discos de mi gimnasio</span>
                   <div class="inventory-grid">
                     @for (plate of plateConfiguration().plates; track plate.weight) {
                       <label class="inventory-item">
                         <span>{{ plate.weight }} {{ calculatorUnit() }}</span>
                         <input
-                          type="number"
-                          inputmode="numeric"
-                          min="0"
-                          step="1"
-                          [attr.aria-label]="'Cantidad de discos de ' + plate.weight + ' ' + calculatorUnit()"
-                          [value]="plate.quantity"
-                          (input)="updatePlateQuantity(plate.weight, $event)"
+                          type="checkbox"
+                          role="switch"
+                          [attr.aria-label]="'Discos de ' + plate.weight + ' ' + calculatorUnit()"
+                          [checked]="plate.quantity > 0"
+                          (change)="togglePlate(plate.weight, $any($event.target).checked)"
                         />
                       </label>
                     }
@@ -871,7 +855,7 @@
                   />
                   <span>
                     <strong>Recordar esta configuración</strong>
-                    <small>Guarda barra, seguros, discos, incremento y fórmula solo en este dispositivo.</small>
+                    <small>Guarda barra, discos, incremento y fórmula solo en este dispositivo.</small>
                   </span>
                 </label>
               </div>
@@ -909,38 +893,14 @@
                     }
                   </div>
                 } @else {
-                  <p>Solo la barra y los seguros.</p>
+                  <p>Solo la barra.</p>
                 }
                 <div class="plate-breakdown">
                   <div><span>Barra</span><strong>{{ formatCalculatorWeight(emptyBarWeight()) }}</strong></div>
                   <div><span>Discos, ambos lados</span><strong>{{ formatCalculatorWeight(plateDiscTotal(exact.total)) }}</strong></div>
-                  @if (collarWeight() > 0) {
-                    <div><span>Seguros</span><strong>{{ formatCalculatorWeight(collarWeight()) }}</strong></div>
-                  }
                   <div class="total"><span>Total</span><strong>{{ formatCalculatorWeight(exact.total) }}</strong></div>
                 </div>
-                @if (exact.perSide.length) {
-                  <div class="barbell-section">
-                    <span class="result-kicker">Montaje de la barra</span>
-                    <div class="barbell-visual" role="img" [attr.aria-label]="plateVisualLabel(exact)">
-                      <div class="plate-side left" aria-hidden="true">
-                        @for (plate of exact.perSide; track plate.weight) {
-                          @for (copy of plateCopies(plate.count); track copy) {
-                            <i class="plate-disc">{{ plate.weight }}</i>
-                          }
-                        }
-                      </div>
-                      <i class="bar-shaft" aria-hidden="true"></i>
-                      <div class="plate-side" aria-hidden="true">
-                        @for (plate of exact.perSide; track plate.weight) {
-                          @for (copy of plateCopies(plate.count); track copy) {
-                            <i class="plate-disc">{{ plate.weight }}</i>
-                          }
-                        }
-                      </div>
-                    </div>
-                  </div>
-                }
+                <app-barbell-visual [selection]="exact" [unit]="calculatorUnit()" />
                 <div class="calculator-next-step plate-next-step">
                   <div>
                     <span>Paso 3</span>
@@ -1335,3 +1295,12 @@
   }
   @if (activeView() === 'dictionary') { <app-training-dictionary /> }
 </main>
+
+@if (barbellExercise(); as exercise) {
+  <app-barbell-modal
+    [exercise]="exercise.exercise" [target]="targetBarWeight()" [configuration]="plateConfiguration()"
+    (close)="closeExerciseBarbell()" (targetChange)="targetBarWeight.set($event)"
+    (barChange)="emptyBarWeight.set($event)"
+    (inventoryChange)="togglePlate($event.weight, $event.enabled)"
+  />
+}

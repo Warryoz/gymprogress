@@ -37,8 +37,8 @@ import { plannedSetCount } from './exercise-set-progress';
           }
         </p>
 
-        @if (row().rest) {
-          <p class="rest">Descanso: {{ row().rest }}</p>
+        @if (usesBarbell() && !repdbMedia()) {
+          <button type="button" class="mount-bar" (click)="mountBar.emit()">Ver barra montada</button>
         }
       </div>
 
@@ -68,6 +68,12 @@ import { plannedSetCount } from './exercise-set-progress';
                 loading="lazy"
                 decoding="async"
               />
+            }
+            @if (usesBarbell()) {
+              <button type="button" class="mount-bar image-action" (click)="mountBar.emit()" aria-label="Ver barra montada">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 5v14M3 8v8M17 5v14M21 8v8M7 12h10M1 12h2M21 12h2" /></svg>
+                Montar barra
+              </button>
             }
             <button
               type="button"
@@ -179,6 +185,17 @@ import { plannedSetCount } from './exercise-set-progress';
   styleUrl: './exercise-card.css',
 })
 export class ExerciseCard {
+  readonly mountBar = output<void>();
+  protected readonly usesBarbell = computed(() => {
+    const row = this.row();
+    const name = row.exercise.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (/mancuerna|dumbbell|maquina|machine|polea|cable|goblet|hack|prensa|dominada|pull.up/.test(name)) return false;
+    if (this.showRepdbMedia()) {
+      const media = resolveBlockTwoRepdbExercise(row);
+      if (media) return ['incline-bench-press', 'wide-grip-bench-press', 'barbell-row', 'ez-bar-overhead-extension', 'squat', 'romanian-deadlift', 'hip-thrust'].includes(media.id);
+    }
+    return /barra|barbell|bench press|press (?:de )?banca|press inclinado|sentadilla|squat|peso muerto|deadlift|hip thrust|press militar|overhead press/.test(name);
+  });
   protected readonly describe = technicalDescription;
   public readonly row = input.required<TrainingPlanRow>();
   public readonly tone = input.required<string>();

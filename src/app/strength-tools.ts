@@ -37,6 +37,7 @@ export interface PlateInventoryItem {
 }
 
 export interface PlateConfiguration {
+  unlimitedPlates?: boolean;
   unit: WeightUnit;
   barWeight: number;
   collarWeight: number;
@@ -177,19 +178,24 @@ export function calculatePlateCombination(
   configuration: PlateConfiguration,
 ): PlateCombination {
   const baseWeight = Math.max(configuration.barWeight + configuration.collarWeight, 0);
+  if (![targetWeight, baseWeight].every(Number.isFinite)) {
+    return { exact: null, lower: { total: 0, perSide: [], difference: 0 }, upper: null };
+  }
   const targetPerSide = Math.max((targetWeight - baseWeight) / 2, 0);
-  const scale = 100;
+  const scale = 1000;
   const targetUnits = Math.round(targetPerSide * scale);
   const maxPlate = Math.max(...configuration.plates.map((plate) => plate.weight), 0);
   const limit = targetUnits + Math.round(maxPlate * scale);
   let combinations = new Map<number, Array<{ weight: number; count: number }>>([[0, []]]);
 
   configuration.plates
-    .filter((plate) => plate.weight > 0 && plate.quantity > 0)
+    .filter((plate) => Number.isFinite(plate.weight) && Number.isFinite(plate.quantity) && plate.weight >= 0.01 && plate.quantity >= 2)
     .sort((a, b) => b.weight - a.weight)
     .forEach((plate) => {
       const plateUnits = Math.round(plate.weight * scale);
-      const quantityPerSide = Math.floor(plate.quantity / 2);
+      const quantityPerSide = configuration.unlimitedPlates
+        ? Math.ceil(limit / plateUnits)
+        : Math.floor(plate.quantity / 2);
       const next = new Map(combinations);
 
       combinations.forEach((combination, sum) => {
@@ -219,7 +225,8 @@ export function calculatePlateCombination(
   };
 
   return {
-    exact: combinations.has(targetUnits) ? selection(targetUnits) : null,
+    exact: combinations.has(targetUnits) && Math.abs(selection(targetUnits).total - targetWeight) < 0.001
+      ? selection(targetUnits) : null,
     lower: selection(lowerUnits),
     upper: upperUnits === null ? null : selection(upperUnits),
   };
